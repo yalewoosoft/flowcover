@@ -8,7 +8,7 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ether_types
 from ryu.lib.packet import ethernet, arp, ipv4, ipv6
 from netaddr import IPAddress, IPNetwork
-from ControllerTemplate import ControllerTemplate
+from .ControllerTemplate import ControllerTemplate
 
 
 class Controller(ControllerTemplate):

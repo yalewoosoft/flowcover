@@ -4,6 +4,7 @@ from random import random
 from mininet.net import Mininet
 from mininet.node import OVSSwitch
 
+
 class SimulatedNetworkTopology(Topo):
     """
         This class represents a simulated mininet network.
@@ -25,8 +26,8 @@ class SimulatedNetworkTopology(Topo):
         for s in range(0, n):
             self.switches.append(self.addSwitch('s%s' % s))
         if random_type == 'linear':
-            for s in range(0, n-1):
-                self.addLink(self.switches[s], self.switches[s+1])
+            for s in range(0, n - 1):
+                self.addLink(self.switches[s], self.switches[s + 1])
         elif random_type == 'erdos-renyi':
             for s1, s2 in product(self.switches, self.switches):
                 if s1 == s2:
