@@ -1,14 +1,9 @@
-from mininet.net import Mininet
-from mininet.log import setLogLevel
-from network.SimulatedNetwork import SimulatedNetworkTopology
-from mininet.node import RemoteController
+from mininet.cli import CLI
+from network import SimulatedNetwork
+from controller import Controller
 
 if __name__ == '__main__':
-    setLogLevel('debug')
-    net = Mininet(
-        topo=SimulatedNetworkTopology(n=5, random_type='linear'),
-        controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633)
-    )
-    net.start()
-    input()
+    net = SimulatedNetwork.main()
+    Controller.main() # start controller
+    CLI(net) # drop to mininet console for debugging
     net.stop()

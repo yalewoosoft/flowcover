@@ -1,8 +1,10 @@
+from mininet.cli import CLI
+from mininet.log import setLogLevel
 from mininet.topo import Topo
 from itertools import product
 from random import random
 from mininet.net import Mininet
-from mininet.node import OVSSwitch
+from mininet.node import OVSSwitch, RemoteController
 
 
 class SimulatedNetworkTopology(Topo):
@@ -34,3 +36,17 @@ class SimulatedNetworkTopology(Topo):
                     self.addLink(s1, s2)
         else:
             raise NotImplementedError()
+
+def main():
+    setLogLevel('debug')
+    network = Mininet(
+        topo=SimulatedNetworkTopology(n=5, random_type='linear'),
+        controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633)
+    )
+    network.start()
+    return network
+
+if __name__ == '__main__':
+    net = main()
+    CLI(net)
+    net.stop()
