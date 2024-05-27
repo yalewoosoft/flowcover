@@ -8,6 +8,7 @@ idna==3.7
 mininet==2.3.0.dev6
 msgpack==1.0.8
 netaddr==1.2.1
+networkx==3.2.1
 oslo.config==9.4.0
 oslo.i18n==6.3.0
 ovs==3.3.0
