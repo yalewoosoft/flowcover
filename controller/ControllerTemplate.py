@@ -19,7 +19,7 @@ class ControllerTemplate(app_manager.RyuApp):
         print('$SDNC_CLEAR_SCREEN$')
 
     def program_flow(
-            self, datapath, match, actions, priority=0,
+            self, datapath, match, actions, cookie, priority=0,
             hard_timeout=0, idle_timeout=0, table_id=0):
         """
         Programs a flow to the switch identified by the given datapath.
@@ -50,6 +50,7 @@ class ControllerTemplate(app_manager.RyuApp):
         flowmod = parser.OFPFlowMod(
             datapath,
             match=match,
+            cookie=cookie,
             instructions=instructions,
             priority=priority,
             hard_timeout=hard_timeout,
