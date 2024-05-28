@@ -2,17 +2,10 @@
 <project version="4">
   <component name="PublishConfigData" autoUpload="Always" serverName="sakurauchi_riko@mininet.woogmbh.cc:22 key (2)" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="sakurauchi_riko@127.0.0.1:22 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/tmp/pycharm_project_298" local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="sakurauchi_riko@mininet.woogmbh.cc:22 key (2)">
         <serverdata>
           <mappings>
-            <mapping deploy="/tmp/pycharm_project_646" local="$PROJECT_DIR$" />
+            <mapping deploy="/tmp/pycharm_project_689" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

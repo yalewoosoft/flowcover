@@ -35,7 +35,7 @@ class Controller(ControllerTemplate):
 
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
-        self.info('Controller started')('')
+        self.info('Controller started')
         self.online_switches = {}
         self.switch_configured = {}
         self.get_initial_topology()
