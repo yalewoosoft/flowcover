@@ -9,7 +9,7 @@ from mininet.node import OVSSwitch, RemoteController
 import pickle
 
 from utils import HostIdIPConverter
-
+from utils.GraphGenerator import *
 
 def port_id_generator():
     current_id = 1
@@ -40,8 +40,15 @@ class SimulatedNetworkTopology(Topo):
         self.switch_host_port = {}
         self.graph = nx.Graph()
         id_generator = port_id_generator()
+        if random_type == 'linear':
+            self.graph = linear_generator(n)
+        elif random_type == 'erdos-renyi':
+            self.graph = erdos_renyi_generator(n, prob)
+        else:
+            raise NotImplementedError()
+        print(self.graph)
         # note that s is always an int in the following code, not the switch object.
-        for s in range(1, n+1):
+        for s in self.graph.nodes:
             self.my_switches.append(self.addSwitch('s%s' % s))
             self.graph.add_node(s)
             # add a host for every switch, ip generated using Converter class
@@ -50,29 +57,13 @@ class SimulatedNetworkTopology(Topo):
             id_1 = next(id_generator)
             self.addLink(self.my_switches[s], h, port1=id_1)
             self.switch_host_port[(s, s)] = id_1
-        # add an edge in four steps: generate ids -> add a switch link -> record its port id -> add to networkx graph
-        if random_type == 'linear':
-            for s in range(1, n+1):
-                id_1 = next(id_generator)
-                id_2 = next(id_generator)
-                self.addLink(self.my_switches[s], self.my_switches[s + 1], port1=id_1, port2=id_2)
-                self.switch_switch_port[(s, s + 1)] = id_1
-                self.switch_switch_port[(s + 1, s)] = id_2
-                self.graph.add_edge(s, s+1)
-        elif random_type == 'erdos-renyi':
-            for s1, s2 in product(range(1, n+1), range(1, n+1)):
-                if s1 == s2:
-                    continue
-                x = random()
-                if x <= prob:
-                    id_1 = next(id_generator)
-                    id_2 = next(id_generator)
-                    self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2)
-                    self.switch_switch_port[(s1, s2)] = id_1
-                    self.switch_switch_port[(s2, s1)] = id_2
-                    self.graph.add_edge(s1, s2)
-        else:
-            raise NotImplementedError()
+        # add an edge in three steps: generate ids -> add a switch link -> record its port id
+        for s1, s2 in self.graph.edges:
+            id_1 = next(id_generator)
+            id_2 = next(id_generator)
+            self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2)
+            self.switch_switch_port[(s1, s2)] = id_1
+            self.switch_switch_port[(s2, s1)] = id_2
         self.write_initial_topology()
 
     def write_initial_topology(self):
