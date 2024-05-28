@@ -11,6 +11,7 @@ from ryu.lib import hub
 from ryu.lib.packet import packet
 from ryu.lib.packet import ether_types
 from ryu.lib.packet import ethernet, arp, ipv4, ipv6
+from timeit import default_timer as timer
 from netaddr import IPAddress, IPNetwork
 from ryu.cmd import manager
 import networkx as nx
@@ -79,6 +80,16 @@ class Controller(ControllerTemplate):
         :return: a dict: switch id -> flows to poll
         you might want to create some more helper methods.
         """
+        construction_time_start = timer()
+        # Step 1: construction
+        construction_time_end = timer()
+        construction_time_elapsed = construction_time_end - construction_time_start
+
+        calc_time_start = timer()
+        # Step 2: calculation
+        calc_time_end = timer()
+        calc_time_elapsed = calc_time_end - calc_time_start
+        # Write two timers to csv
         return {}
 
     def request_stats(self, datapath: Datapath) -> None:
