@@ -18,7 +18,7 @@ import pickle
 from .ControllerTemplate import ControllerTemplate
 
 
-
+NUM_FLOWS = 10
 
 
 class Controller(ControllerTemplate):
@@ -29,17 +29,19 @@ class Controller(ControllerTemplate):
     switch_flows: dict[int, [int]] # switch id -> list of flow ids that pass though it
     polling: dict[(int, int), int] # switch id -> flows to poll statistics, [] if not polled
     flow_stats: dict[int, int] # flow id -> number of packets
+    switch_configured: dict[int, bool] # switch id -> bool
+    online_switches: dict[int, Datapath] # switch id -> switch object
 
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
-        self.info('Controller started')
-        self.online_switches: dict[int, Datapath] = {}
+        self.info('Controller started')('')
+        self.online_switches = {}
+        self.switch_configured = {}
         self.get_initial_topology()
-        self.flows = self.generate_random_flows()
+        self.flows = self.generate_random_flows(NUM_FLOWS)
         self.switch_flows = self.generate_switch_flow_list()
         self.polling = self.set_cover()
         self.flow_stats = {}
-        # TODO:
         self.monitor_thread = hub.spawn(self._monitor)
 
     def get_initial_topology(self) -> None:
@@ -48,10 +50,15 @@ class Controller(ControllerTemplate):
             self.switch_switch_port = pickle.load(f)
         with open('switch_host_port_id.bin', 'rb') as f:
             self.switch_host_port = pickle.load(f)
+        # set all switches to not configured
+        for s in self.topology.nodes:
+            self.switch_configured[s] = False
 
-    def generate_random_flows(self) -> dict[int, [int]]:
+
+    def generate_random_flows(self, m: int) -> dict[int, [int]]:
         """
         TODO: select random paths from topology and generate random flows
+        m is the number of random flows
         Use self.topology and networkx.
         return value should be a list of lists of switch ids
         """
@@ -70,6 +77,7 @@ class Controller(ControllerTemplate):
         TODO: transform the flow/switch_flow structure into set cover input and solve it
         Use self.flows and self.switch_flows
         :return: a dict: switch id -> flows to poll
+        you might want to create some more helper methods.
         """
         return {}
 
@@ -135,17 +143,18 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
+        current_switch_id = int(ev.msg.datapath.id)
         for flow_id in self.flows:
             for switch_id in self.flows[flow_id]:
                 switch_id = int(switch_id)
-                current_id = int(ev.msg.datapath.id)
-                if switch_id == current_id:
+                if switch_id == current_switch_id:
                     # TODO: program flow
                     # flows are in form (s1, s2, s3 ... sn)
                     # if match, then program a flow that passes traffic to the next hop
                     # the ip target could be calculated like this:
                     # id_to_ip(sn)/32
                     pass
+        self.switch_configured[current_switch_id] = True
 
 
 
