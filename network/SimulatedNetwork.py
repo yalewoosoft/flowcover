@@ -8,6 +8,9 @@ from mininet.net import Mininet
 from mininet.node import OVSSwitch, RemoteController
 import pickle
 
+from utils import HostIdIPConverter
+
+
 def port_id_generator():
     current_id = 1
     while True:
@@ -15,6 +18,10 @@ def port_id_generator():
         current_id += 1
 
 class SimulatedNetworkTopology(Topo):
+    my_switches: [OVSSwitch]
+    switch_switch_port: dict[(int, int), int]
+    switch_host_port: dict[(int, int), int]
+    graph: nx.Graph
     """
         This class represents a simulated mininet network.
         Supports generating a random topology using Erdos-Renyi or Waxman.
@@ -28,24 +35,32 @@ class SimulatedNetworkTopology(Topo):
         :param prob: probability for erdos-renyi and waxman random graph generation
         :return: None
         """
-        self.my_switches: [OVSSwitch] = []
-        self.link_port: dict[(int, int), int] = {}
-        self.graph: nx.Graph = nx.Graph()
+        self.my_switches = [None] # switch index starts from 1, 0 is None due to Ryu bug
+        self.switch_switch_port = {}
+        self.switch_host_port = {}
+        self.graph = nx.Graph()
         id_generator = port_id_generator()
+        # note that s is always an int in the following code, not the switch object.
         for s in range(1, n+1):
             self.my_switches.append(self.addSwitch('s%s' % s))
             self.graph.add_node(s)
+            # add a host for every switch, ip generated using Converter class
+            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/32")
+            # add an edge to host and switch
+            id_1 = next(id_generator)
+            self.addLink(self.my_switches[s], h, port1=id_1)
+            self.switch_host_port[(s, s)] = id_1
         # add an edge in four steps: generate ids -> add a switch link -> record its port id -> add to networkx graph
         if random_type == 'linear':
             for s in range(1, n+1):
                 id_1 = next(id_generator)
                 id_2 = next(id_generator)
                 self.addLink(self.my_switches[s], self.my_switches[s + 1], port1=id_1, port2=id_2)
-                self.link_port[(s, s+1)] = id_1
-                self.link_port[(s+1, s)] = id_2
+                self.switch_switch_port[(s, s + 1)] = id_1
+                self.switch_switch_port[(s + 1, s)] = id_2
                 self.graph.add_edge(s, s+1)
         elif random_type == 'erdos-renyi':
-            for s1, s2 in product(range(0, n), range(0, n)):
+            for s1, s2 in product(range(1, n+1), range(1, n+1)):
                 if s1 == s2:
                     continue
                 x = random()
@@ -53,8 +68,8 @@ class SimulatedNetworkTopology(Topo):
                     id_1 = next(id_generator)
                     id_2 = next(id_generator)
                     self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2)
-                    self.link_port[(s1, s2)] = id_1
-                    self.link_port[(s2, s1)] = id_2
+                    self.switch_switch_port[(s1, s2)] = id_1
+                    self.switch_switch_port[(s2, s1)] = id_2
                     self.graph.add_edge(s1, s2)
         else:
             raise NotImplementedError()
@@ -62,8 +77,10 @@ class SimulatedNetworkTopology(Topo):
 
     def write_initial_topology(self):
         nx.write_adjlist(self.graph, 'topology.bin')
-        with open('port_id.bin', 'wb') as f:
-            pickle.dump(self.link_port, f)
+        with open('switch_switch_port_id.bin', 'wb') as f:
+            pickle.dump(self.switch_switch_port, f)
+        with open('switch_host_port_id.bin', 'wb') as f:
+            pickle.dump(self.switch_host_port, f)
 
 def main():
     setLogLevel('debug')
