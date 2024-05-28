@@ -1,4 +1,5 @@
 import sys
+import os
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.controller import Datapath
@@ -22,27 +23,33 @@ from .ControllerTemplate import ControllerTemplate
 
 class Controller(ControllerTemplate):
     topology: nx.Graph
-    link_port: dict[(int, int), int]
+    switch_switch_port: dict[(int, int), int] # (switch id from, to) -> port id
+    switch_host_port: dict[(int, int), int] # (switch id, host id) -> port id
+    flows: dict[int, [int]] # flow id -> list of switches on flow path
+    switch_flows: dict[int, [int]] # switch id -> list of flow ids that pass though it
+    polling: dict[(int, int), int] # switch id -> flows to poll statistics, [] if not polled
+    flow_stats: dict[int, int] # flow id -> number of packets
 
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
         self.info('Controller started')
-        self.ready = False
         self.online_switches: dict[int, Datapath] = {}
         self.get_initial_topology()
         self.flows = self.generate_random_flows()
         self.switch_flows = self.generate_switch_flow_list()
         self.polling = self.set_cover()
-        self.flow_stats: [[int]] = []
+        self.flow_stats = {}
         # TODO:
         self.monitor_thread = hub.spawn(self._monitor)
 
     def get_initial_topology(self) -> None:
         self.topology = nx.read_adjlist('topology.bin')
-        with open('port_id.bin', 'rb') as f:
-            self.link_port = pickle.load(f)
+        with open('switch_switch_port_id.bin', 'rb') as f:
+            self.switch_switch_port = pickle.load(f)
+        with open('switch_host_port_id.bin', 'rb') as f:
+            self.switch_host_port = pickle.load(f)
 
-    def generate_random_flows(self) -> [[int]]:
+    def generate_random_flows(self) -> dict[int, [int]]:
         """
         TODO: select random paths from topology and generate random flows
         Use self.topology and networkx.
@@ -50,7 +57,7 @@ class Controller(ControllerTemplate):
         """
         return []
 
-    def generate_switch_flow_list(self) -> [[int]]:
+    def generate_switch_flow_list(self) -> dict[int, [int]]:
         """
         TODO: Converts the list of flows to the list of switches where the flow passes through
         Use self.flows
@@ -92,19 +99,18 @@ class Controller(ControllerTemplate):
         datapath = ev.datapath
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.online_switches:
-                self.logger.debug('register switch: %016x', datapath.id)
+                self.logger.debug('register switch: %x', datapath.id)
                 self.online_switches[datapath.id] = datapath
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.online_switches:
-                self.logger.debug('unregister switch: %016x', datapath.id)
+                self.logger.debug('unregister switch: %x', datapath.id)
                 del self.online_switches[datapath.id]
 
     def _monitor(self):
         while True:
-            if self.ready:
-                for dp in self.online_switches.values():
-                    self.request_stats(dp)
-                hub.sleep(10)
+            for dp in self.online_switches.values():
+                self.request_stats(dp)
+            hub.sleep(10)
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -129,12 +135,28 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
+        for flow_id in self.flows:
+            for switch_id in self.flows[flow_id]:
+                switch_id = int(switch_id)
+                current_id = int(ev.msg.datapath.id)
+                if switch_id == current_id:
+                    # TODO: program flow
+                    # flows are in form (s1, s2, s3 ... sn)
+                    # if match, then program a flow that passes traffic to the next hop
+                    # the ip target could be calculated like this:
+                    # id_to_ip(sn)/32
+                    pass
+
+
 
 def main():
     sys.argv.append('controller.Controller')
     sys.argv.append('--verbose')
     sys.argv.append('--enable-debugger')
+    sys.argv.append('--use-stderr')
+    sys.argv.append('--ofp-listen-host=127.0.0.1')
     manager.main()
+
 
 if __name__ == '__main__':
     main()
