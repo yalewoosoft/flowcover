@@ -4,6 +4,7 @@ from mininet.log import setLogLevel
 from mininet.topo import Topo
 from itertools import product
 from random import random
+from mininet.clean import cleanup
 from mininet.net import Mininet
 from mininet.node import OVSSwitch, RemoteController
 import pickle
@@ -35,6 +36,7 @@ class SimulatedNetworkTopology(Topo):
         :param prob: probability for erdos-renyi and waxman random graph generation
         :return: None
         """
+        cleanup()
         self.my_switches = [None] # switch index starts from 1, 0 is None due to Ryu bug
         self.switch_switch_port = {}
         self.switch_host_port = {}
@@ -44,6 +46,8 @@ class SimulatedNetworkTopology(Topo):
             self.graph = linear_generator(n)
         elif random_type == 'erdos-renyi':
             self.graph = erdos_renyi_generator(n, prob)
+        elif random_type == 'waxman':
+            self.graph = waxman_generator_1(n, 0.5, 0.5)
         else:
             raise NotImplementedError()
         print(self.graph)
