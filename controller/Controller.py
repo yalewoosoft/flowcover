@@ -16,6 +16,8 @@ from netaddr import IPAddress, IPNetwork
 from ryu.cmd import manager
 import networkx as nx
 import pickle
+
+from utils.HostIdIPConverter import id_to_ip
 from .ControllerTemplate import ControllerTemplate
 
 
@@ -63,7 +65,14 @@ class Controller(ControllerTemplate):
         Use self.topology and networkx.
         return value should be a list of lists of switch ids
         """
-        return []
+
+        flows = {}
+        random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=m)
+
+        for flow_id, path in enumerate(random_paths):
+            flows[flow_id] = path
+
+        return flows
 
     def generate_switch_flow_list(self) -> dict[int, [int]]:
         """
@@ -71,7 +80,14 @@ class Controller(ControllerTemplate):
         Use self.flows
         :return:
         """
-        pass
+        switch_flow_list = {}
+
+        for flow_id, switches in self.flow.items():
+            for switch_id in switches:
+                if switch_id not in switch_flow_list:
+                    switch_flow_list[switch_id] = []
+                switch_flow_list[switch_id].append(flow_id)
+        return switch_flow_list
 
     def set_cover(self) -> dict[int, [int]]:
         """
@@ -154,17 +170,22 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
+        dp = ev.msg.datapath
+        parser = dp.ofproto_parser
         current_switch_id = int(ev.msg.datapath.id)
         for flow_id in self.flows:
-            for switch_id in self.flows[flow_id]:
+            switch_list = self.flows[flow_id]
+            for counter, switch_id in enumerate(switch_list):
                 switch_id = int(switch_id)
                 if switch_id == current_switch_id:
-                    # TODO: program flow
-                    # flows are in form (s1, s2, s3 ... sn)
-                    # if match, then program a flow that passes traffic to the next hop
-                    # the ip target could be calculated like this:
-                    # id_to_ip(sn)/32
-                    pass
+                    if counter < len(switch_list) - 1:
+                        next_switch_id = switch_list[counter + 1]
+                        next_switch_ip = id_to_ip(next_switch_id)
+                        out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
+                        match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP
+                                                , ipv4_dst=next_switch_ip)
+                        actions = [parser.OFPActionOutput(out_port)]
+                        self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
 
 
