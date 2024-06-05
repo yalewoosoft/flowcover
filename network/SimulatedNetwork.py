@@ -1,3 +1,5 @@
+import subprocess
+
 import networkx as nx
 from mininet.cli import CLI
 from mininet.log import setLogLevel
@@ -6,15 +8,17 @@ from itertools import product
 from random import random
 from mininet.clean import cleanup
 from mininet.net import Mininet
-from mininet.node import OVSSwitch, RemoteController
+from mininet.node import OVSSwitch, RemoteController, Host
 import pickle
 from random import sample
 from math import floor, sqrt
+from typing import Optional
 import os
 
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
+network: Optional[Mininet] = None
 def port_id_generator():
     current_id = 1
     while True:
@@ -107,8 +111,13 @@ class SimulatedNetworkTopology(Topo):
         with open('switch_host_port_id.bin', 'wb') as f:
             pickle.dump(self.switch_host_port, f)
 
-    def send_traffic(self, src: int, target: int, num_bytes: int) -> None:
-        pass
+
+def send_traffic(src: int, target: int, num_bytes: int) -> None:
+    assert network is not None
+    src_host: Host = network.get(f'h{src}')
+    dst_host: Host = network.get(f'h{target}')
+    dst_host.popen(['iperf', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 def main():
     setLogLevel('debug')
