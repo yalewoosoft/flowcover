@@ -1,3 +1,4 @@
+import signal
 import sys
 import os
 from ryu.base import app_manager
@@ -34,10 +35,12 @@ class Controller(ControllerTemplate):
     flow_stats: dict[int, int] # flow id -> number of packets
     switch_configured: dict[int, bool] # switch id -> bool
     online_switches: dict[int, Datapath] # switch id -> switch object
+    pid_of_mininet: int
 
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
         self.info('Controller started')
+        self.read_pid_of_mininet()
         self.online_switches = {}
         self.switch_configured = {}
         self.get_initial_topology()
@@ -46,6 +49,10 @@ class Controller(ControllerTemplate):
         self.polling = self.set_cover()
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
+
+    def read_pid_of_mininet(self) -> None:
+        with open('pid.txt', 'r') as f:
+            self.pid_of_mininet = int(f.readline())
 
     def get_initial_topology(self) -> None:
         self.topology = nx.read_adjlist('topology.bin')
@@ -187,6 +194,10 @@ class Controller(ControllerTemplate):
                         actions = [parser.OFPActionOutput(out_port)]
                         self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
+        if all(self.switch_configured.values()):
+            # if all switch configured: notify mininet to start generating traffic
+            os.kill(self.pid_of_mininet, signal.SIGUSR1)
+
 
 
 
