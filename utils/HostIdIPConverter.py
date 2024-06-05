@@ -6,7 +6,7 @@ def id_to_ip(host_id: int) -> str:
     return f"11.22.{pos_3}.{pos_4}"
 
 
-def ip_to_id(cls, ip: str) -> int:
+def ip_to_id(ip: str) -> int:
     try:
         _, _, pos_3, pos_4 = ip.split('.')
         pos_3 = int(pos_3)

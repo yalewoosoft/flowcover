@@ -8,6 +8,7 @@ from mininet.clean import cleanup
 from mininet.net import Mininet
 from mininet.node import OVSSwitch, RemoteController
 import pickle
+import os
 
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
@@ -77,12 +78,18 @@ class SimulatedNetworkTopology(Topo):
         with open('switch_host_port_id.bin', 'wb') as f:
             pickle.dump(self.switch_host_port, f)
 
+    def send_traffic(self, src: int, target: int, num_bytes: int) -> None:
+        pass
+
 def main():
     setLogLevel('debug')
     network = Mininet(
         topo=SimulatedNetworkTopology(n=7, random_type='erdos-renyi', prob=0.5),
         controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633, protocols="OpenFlow13")
     )
+    with open('pid.txt', 'w', encoding='utf-8') as f:
+        # write mininet pid to file; Ryu uses this to notify mininet to start sending traffic
+        f.write(str(os.getpid()))
     network.start()
     return network
 
