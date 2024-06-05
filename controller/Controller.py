@@ -46,6 +46,7 @@ class Controller(ControllerTemplate):
         self.get_initial_topology()
         self.flows = self.generate_random_flows(NUM_FLOWS)
         self.switch_flows = self.generate_switch_flow_list()
+        self.write_flows_to_file()
         self.polling = self.set_cover()
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
@@ -75,7 +76,7 @@ class Controller(ControllerTemplate):
         """
 
         flows = {}
-        random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=m)
+        random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())
 
         for flow_id, path in enumerate(random_paths):
             flows[flow_id] = path
@@ -97,6 +98,10 @@ class Controller(ControllerTemplate):
                     switch_flow_list[switch_id] = []
                 switch_flow_list[switch_id].append(flow_id)
         return switch_flow_list
+
+    def write_flows_to_file(self) -> None:
+        with open('random_flows.bin', 'wb') as f:
+            pickle.dump(self.flows, f)
 
     def set_cover(self) -> dict[int, [int]]:
         """
@@ -155,6 +160,7 @@ class Controller(ControllerTemplate):
         while True:
             for dp in self.online_switches.values():
                 self.request_stats(dp)
+            # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
             hub.sleep(10)
 
 
