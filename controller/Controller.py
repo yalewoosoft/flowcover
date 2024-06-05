@@ -68,13 +68,15 @@ class Controller(ControllerTemplate):
         TODO: select random paths from topology and generate random flows
         m is the number of random flows
         Use self.topology and networkx.
-        return value should be a list of lists of switch ids
+        return value should be a dict that maps flow ids (randomly taken, easiest way is to just increment)
+            to a list of switch ids that describe the path,
         """
         return []
 
     def generate_switch_flow_list(self) -> dict[int, [int]]:
         """
-        TODO: Converts the list of flows to the list of switches where the flow passes through
+        TODO: Converts the dict of flows to the dict of switches where the flow passes through
+        Output format: a dict that maps switch ids to a list of flow ids that run on the switch.
         Use self.flows
         :return:
         """
@@ -94,6 +96,7 @@ class Controller(ControllerTemplate):
 
         calc_time_start = timer()
         # Step 2: calculation
+        # call utils.set_cover_solve here
         calc_time_end = timer()
         calc_time_elapsed = calc_time_end - calc_time_start
         # Write two timers to csv

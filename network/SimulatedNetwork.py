@@ -14,6 +14,7 @@ from random import sample
 from math import floor, sqrt
 from typing import Optional
 import os
+import signal
 
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
@@ -112,15 +113,21 @@ class SimulatedNetworkTopology(Topo):
             pickle.dump(self.switch_host_port, f)
 
 
-def send_traffic(src: int, target: int, num_bytes: int) -> None:
+def send_traffic(src: int, dst: int, num_bytes: int) -> None:
     assert network is not None
     src_host: Host = network.get(f'h{src}')
-    dst_host: Host = network.get(f'h{target}')
+    dst_host: Host = network.get(f'h{dst}')
+    dst_ip = HostIdIPConverter.id_to_ip(dst)
     dst_host.popen(['iperf', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    src_host.popen(['iperf', '-c', dst_ip, '-n', num_bytes], cwd="/tmp/", stderr=subprocess.DEVNULL)
+
+def handle_signal_emulate_traffic(sig, frame):
+    print('Signal USR1 received, start sending traffic')
 
 
 def main():
     setLogLevel('debug')
+    global network
     network = Mininet(
         topo=SimulatedNetworkTopology(n=7, random_type='erdos-renyi', prob=0.5, loss_switch_ratio=50, packet_loss_ratio=1),
         controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633, protocols="OpenFlow13")
@@ -132,6 +139,7 @@ def main():
     return network
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGUSR1, handle_signal_emulate_traffic)
     net = main()
     CLI(net)
     net.stop()
