@@ -1,6 +1,8 @@
 import signal
 import sys
 import os
+from datetime import time
+
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.controller import Datapath
@@ -138,7 +140,10 @@ class Controller(ControllerTemplate):
         Write results to self.flow_stats.
         """
         body = ev.msg.body
-        pass
+        for stat in body:
+            flow_id = stat.cookie
+            self.flow_stats[flow_id] = stat.packet_count
+
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -161,6 +166,15 @@ class Controller(ControllerTemplate):
             for dp in self.online_switches.values():
                 self.request_stats(dp)
             # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
+                # Save flow_stats to a JSON file with a timestamped filename
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                filename = f"stats/flow_stats_{timestamp}.json"
+
+                # Ensure the stats directory exists
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+                with open(filename, 'w') as f:
+                    json.dump(self.flow_stats, f, indent=4)
             hub.sleep(10)
 
 
