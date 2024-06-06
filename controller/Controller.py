@@ -82,7 +82,7 @@ class Controller(ControllerTemplate):
         random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())
 
         for flow_id, path in enumerate(random_paths):
-            flows[flow_id] = path
+            flows[flow_id] = list(map(int, path))
 
         return flows
 

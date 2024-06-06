@@ -20,6 +20,7 @@ from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
 network: Optional[Mininet] = None
+NUM_BYTES_PER_FLOW = 10000
 def port_id_generator():
     current_id = 1
     while True:
@@ -118,11 +119,18 @@ def send_traffic(src: int, dst: int, num_bytes: int) -> None:
     src_host: Host = network.get(f'h{src}')
     dst_host: Host = network.get(f'h{dst}')
     dst_ip = HostIdIPConverter.id_to_ip(dst)
-    dst_host.popen(['iperf', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    src_host.popen(['iperf', '-c', dst_ip, '-n', num_bytes], cwd="/tmp/", stderr=subprocess.DEVNULL)
+    dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    src_host.popen(['iperf3', '-c', dst_ip, '-n', num_bytes], cwd="/tmp/", stderr=subprocess.DEVNULL)
 
 def handle_signal_emulate_traffic(sig, frame):
     print('Signal USR1 received, start sending traffic')
+    # read random flows from file
+    with open('random_flows.bin', 'rb') as f:
+        flows: dict[int, [int]] = pickle.load(f)
+        for flow in flows.values():
+            src = flow[0]
+            dst = flow[-1]
+            send_traffic(src, dst, NUM_BYTES_PER_FLOW)
 
 
 def main():
