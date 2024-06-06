@@ -92,7 +92,7 @@ class Controller(ControllerTemplate):
         """
         switch_flow_list = {}
 
-        for flow_id, switches in self.flow.items():
+        for flow_id, switches in self.flows.items():
             for switch_id in switches:
                 if switch_id not in switch_flow_list:
                     switch_flow_list[switch_id] = []
@@ -186,22 +186,26 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
-        dp = ev.msg.datapath
-        parser = dp.ofproto_parser
         current_switch_id = int(ev.msg.datapath.id)
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
+            last_switch_id = switch_list[-1]
+            last_switch_ip = id_to_ip(last_switch_id)
             for counter, switch_id in enumerate(switch_list):
                 switch_id = int(switch_id)
                 if switch_id == current_switch_id:
-                    if counter < len(switch_list) - 1:
+                    dp = ev.msg.datapath
+                    parser = dp.ofproto_parser
+                    if switch_id == last_switch_id:
+                        host_port = self.switch_host_port[(current_switch_id, last_switch_id)]
+                        actions = [parser.OFPActionOutput(host_port)]
+                    else:
                         next_switch_id = switch_list[counter + 1]
-                        next_switch_ip = id_to_ip(next_switch_id)
                         out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
-                        match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP
-                                                , ipv4_dst=next_switch_ip)
                         actions = [parser.OFPActionOutput(out_port)]
-                        self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
+                    match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP
+                                            , ipv4_dst=last_switch_ip)
+                    self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
         if all(self.switch_configured.values()):
             # if all switch configured: notify mininet to start generating traffic
