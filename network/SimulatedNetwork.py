@@ -120,7 +120,7 @@ def send_traffic(src: int, dst: int, num_bytes: int) -> None:
     dst_host: Host = network.get(f'h{dst}')
     dst_ip = HostIdIPConverter.id_to_ip(dst)
     dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    src_host.popen(['iperf3', '-c', dst_ip, '-n', num_bytes], cwd="/tmp/", stderr=subprocess.DEVNULL)
+    src_host.popen(['iperf3', '-c', dst_ip, '-n', str(num_bytes)], cwd="/tmp/", stderr=subprocess.DEVNULL)
 
 def handle_signal_emulate_traffic(sig, frame):
     print('Signal USR1 received, start sending traffic')
