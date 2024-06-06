@@ -66,7 +66,7 @@ class Controller(ControllerTemplate):
             self.switch_host_port = pickle.load(f)
         # set all switches to not configured
         for s in self.topology.nodes:
-            self.switch_configured[s] = False
+            self.switch_configured[int(s)] = False
 
 
     def generate_random_flows(self, m: int) -> dict[int, [int]]:
@@ -80,9 +80,12 @@ class Controller(ControllerTemplate):
 
         flows = {}
         random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())
+        print(list(random_paths))
 
         for flow_id, path in enumerate(random_paths):
             flows[flow_id] = list(map(int, path))
+
+        print(flows)
 
         return flows
 
