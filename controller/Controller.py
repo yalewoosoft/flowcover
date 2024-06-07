@@ -133,7 +133,9 @@ class Controller(ControllerTemplate):
         """
         TODO: Request statistics according to the result of set cover algorithm.
         Use self.polling.
-        To poll all stats on a switch: OFPFlowStatsRequest
+        To poll all stats on a switch: use OFPFlowStatsRequest as before
+        To poll one/some stats on a switch: use OFPFlowStatsRequest with cookies.
+        Refer to Ryu documentation for more details.
         """
         pass
 
