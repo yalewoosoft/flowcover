@@ -59,6 +59,29 @@ class ControllerTemplate(app_manager.RyuApp):
         )
         datapath.send_msg(flowmod)
 
+    def remove_flows(self, datapath, table_id):
+        """Removing all flow entries."""
+        parser = datapath.ofproto_parser
+        ofproto = datapath.ofproto
+        empty_match = parser.OFPMatch()
+        instructions = []
+        flow_mod = self.remove_table_flows(datapath, table_id,
+                                           empty_match, instructions)
+        print("deleting all flow entries in table ", table_id)
+        datapath.send_msg(flow_mod)
+
+    def remove_table_flows(self, datapath, table_id, match, instructions):
+        """Create OFP flow mod message to remove flows from table."""
+        ofproto = datapath.ofproto
+        flow_mod = datapath.ofproto_parser.OFPFlowMod(datapath, 0, 0, table_id,
+                                                      ofproto.OFPFC_DELETE, 0, 0,
+                                                      1,
+                                                      ofproto.OFPCML_NO_BUFFER,
+                                                      ofproto.OFPP_ANY,
+                                                      ofproto.OFPG_ANY, 0,
+                                                      match, instructions)
+        return flow_mod
+
     def send_pkt(self, datapath, data, port=ofproto.OFPP_FLOOD):
         """
         Send a packet from the controller to a switch where it will be

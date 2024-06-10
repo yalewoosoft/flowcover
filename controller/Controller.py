@@ -184,6 +184,7 @@ class Controller(ControllerTemplate):
             hub.sleep(10)
 
 
+    '''
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         """Packet-In Callback."""
@@ -199,6 +200,7 @@ class Controller(ControllerTemplate):
             return
         if eth.ethertype == ether_types.ETH_TYPE_IP:
             pass
+    '''
 
     # This decorator makes sure that the function below is invoked
     # every time a new switch is connected to our controller.
@@ -206,6 +208,7 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
+        self.remove_flows(ev.msg.datapath, 0)
         current_switch_id = int(ev.msg.datapath.id)
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
