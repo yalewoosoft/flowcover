@@ -24,17 +24,13 @@ def waxman_generator_1(n: int, alpha: float, beta: float) -> Graph:
     g = Graph()
     g.add_nodes_from(range(1, n + 1))
     side_length = ceil(sqrt(n))
-    x_coords = list(range(0, side_length))
-    y_coords = list(range(0, side_length))
+    all_possible_coords = list(product(range(1, side_length+1), range(1, side_length+1)))
     coords: dict[int, (int, int)] = {}
     for i in range(1, n+1):
-        x = choice(x_coords)
-        x_coords.remove(x)
-        y = choice(y_coords)
-        y_coords.remove(y)
+        x, y = choice(all_possible_coords)
         coords[i] = (x, y)
     dist: dict[(int, int), float] = {}
-    for i, j in product(range(1, n+1), range(1, n+1)):
+    for i, j in product(coords.keys(), coords.keys()):
         i_coords = coords[i]
         j_coords = coords[j]
         dist_i_j = sqrt((i_coords[0] - j_coords[0])**2 + (i_coords[1] - j_coords[1])**2)
