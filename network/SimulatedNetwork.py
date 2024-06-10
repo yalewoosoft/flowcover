@@ -1,4 +1,5 @@
 import subprocess
+import argparse
 
 import networkx as nx
 from mininet.cli import CLI
@@ -38,20 +39,22 @@ class SimulatedNetworkTopology(Topo):
         Supports generating a random topology using Erdos-Renyi or Waxman.
     """
 
-    def build(self, n, random_type='linear', prob=0.5, loss_switch_ratio=0, packet_loss_ratio=0, **_kwargs):
+    def build(self, n, random_type='linear', prob=0.5, waxman_alpha=0.5, waxman_beta=0.5, loss_switch_ratio=0, packet_loss_ratio=0, **_kwargs):
         """
         Initializes a Mininet topology using given parameters.
         :param n: number of switches
         :param random_type: linear/erdos-renyi/waxman
         :param prob: probability for erdos-renyi and waxman random graph generation
-        :param loss_switch_ratio: percent of lossy switches, in integer [0, 100]
-        :param packet_loss_ratio: percent of packet loss on a lossy switch, in integer [0, 100]
+        :param loss_switch_ratio: percent of lossy switches, in float
+        :param packet_loss_ratio: percent of packet loss on a lossy switch, in float
         :return: None
         """
         cleanup()
         assert 0 <= prob <= 1
-        assert 0 <= loss_switch_ratio <= 100
-        assert 0 <= packet_loss_ratio <= 100
+        assert 0 <= waxman_alpha <= 1
+        assert 0 <= waxman_beta <= 1
+        assert 0 <= loss_switch_ratio <= 1
+        assert 0 <= packet_loss_ratio <= 1
         self.my_switches = [None] # switch index starts from 1, 0 is None due to Ryu bug
         self.lossy_switches = []
         self.switch_switch_port = {}
@@ -63,7 +66,7 @@ class SimulatedNetworkTopology(Topo):
         elif random_type == 'erdos-renyi':
             self.graph = erdos_renyi_generator(n, prob)
         elif random_type == 'waxman':
-            self.graph = waxman_generator_1(n, 0.5, 0.5)
+            self.graph = waxman_generator_1(n, waxman_alpha, waxman_beta)
         else:
             raise NotImplementedError()
         print(self.graph)
@@ -72,7 +75,7 @@ class SimulatedNetworkTopology(Topo):
             self.my_switches.append(self.addSwitch('s%s' % s))
             self.graph.add_node(s)
         # pick lossy switches out using loss_switch_ratio
-        num_lossy_switches = floor(n * loss_switch_ratio / 100)
+        num_lossy_switches = floor(n * loss_switch_ratio)
         self.lossy_switches = sample(self.my_switches[1:], num_lossy_switches)
         # Mininet only allows configuring loss on links, not switches.
         # Workaround: if packet_loss_rate=p, apply sqrt(p) loss rate to every link it connects (including host link)
@@ -87,7 +90,7 @@ class SimulatedNetworkTopology(Topo):
             loss_rate = 0
             if s in self.lossy_switches:
                 loss_rate = sqrt(1-packet_loss_ratio)+1
-            self.addLink(self.my_switches[s], h, port1=id_1, loss=loss_rate)
+            self.addLink(self.my_switches[s], h, port1=id_1, loss=loss_rate*100)
             self.switch_host_port[(s, s)] = id_1
         # for the switch graph, calculate the loss rate together
         loss_rate_graph: dict[(int, int),float] = {}
@@ -101,7 +104,7 @@ class SimulatedNetworkTopology(Topo):
         for s1, s2 in self.graph.edges:
             id_1 = next(id_generator)
             id_2 = next(id_generator)
-            self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2, loss=loss_rate_graph[(s1, s2)])
+            self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2, loss=loss_rate_graph[(s1, s2)]*100)
             self.switch_switch_port[(s1, s2)] = id_1
             self.switch_switch_port[(s2, s1)] = id_2
         self.write_initial_topology()
@@ -134,10 +137,27 @@ def handle_signal_emulate_traffic(sig, frame):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Simulated Mininet network')
+    parser.add_argument('--num-switches', default=20, type=int)
+    parser.add_argument('--random-type', default='linear')
+    parser.add_argument('--erdos-renyi-prob', default=0.5, type=float)
+    parser.add_argument('--waxman-alpha', default=0.5, type=float)
+    parser.add_argument('--waxman-beta', default=0.5, type=float)
+    parser.add_argument('--loss-switch-ratio', default=0, type=float)
+    parser.add_argument('--packet-loss-ratio', default=0, type=float)
+    args = parser.parse_args()
     setLogLevel('debug')
     global network
     network = Mininet(
-        topo=SimulatedNetworkTopology(n=7, random_type='erdos-renyi', prob=0.5, loss_switch_ratio=50, packet_loss_ratio=1),
+        topo=SimulatedNetworkTopology(
+            n=args.num_switches,
+            random_type=args.random_type,
+            prob=args.erdos_renyi_prob,
+            waxman_alpha=args.waxman_alpha,
+            waxman_beta=args.waxman_beta,
+            loss_switch_ratio=args.loss_switch_ratio,
+            packet_loss_ratio=args.packet_loss_ratio,
+        ),
         controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633, protocols="OpenFlow13")
     )
     with open('pid.txt', 'w', encoding='utf-8') as f:
