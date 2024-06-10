@@ -5,6 +5,7 @@ import os
 import time
 
 from ryu.base import app_manager
+from ryu import cfg
 from ryu.controller import ofp_event
 from ryu.controller.controller import Datapath
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
@@ -25,8 +26,6 @@ from utils.HostIdIPConverter import id_to_ip
 from .ControllerTemplate import ControllerTemplate
 
 
-NUM_FLOWS = 10
-
 
 class Controller(ControllerTemplate):
     topology: nx.Graph
@@ -43,14 +42,20 @@ class Controller(ControllerTemplate):
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
         self.info('Controller started')
+        num_flows = cfg.CONF['flowcover']['num_flows']
         self.read_pid_of_mininet()
+        print('Finished Reading PID of mininet')
         self.online_switches = {}
         self.switch_configured = {}
         self.get_initial_topology()
-        self.flows = self.generate_random_flows(NUM_FLOWS)
+        print('Topology obtained from mininet')
+        self.flows = self.generate_random_flows(num_flows)
+        print(f'{num_flows} Random flows generated')
         self.switch_flows = self.generate_switch_flow_list()
         self.write_flows_to_file()
+        print('Flows written to file to notify mininet')
         self.polling = self.set_cover()
+        print('SetCover calculation finished')
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
 
@@ -238,6 +243,12 @@ class Controller(ControllerTemplate):
 
 
 def main():
+    # Register a new CLI parameter for Ryu; no docs available; see Stackoverflow #25601133
+    cfg.CONF.register_cli_opts(
+        [
+            cfg.IntOpt('num-flows', default=10)
+        ]
+    , 'flowcover')
     sys.argv.append('controller.Controller')
     sys.argv.append('--verbose')
     sys.argv.append('--enable-debugger')
