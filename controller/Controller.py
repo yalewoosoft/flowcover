@@ -22,6 +22,7 @@ from ryu.lib.packet import ethernet, arp, ipv4, ipv6
 from timeit import default_timer as timer
 from netaddr import IPAddress, IPNetwork
 from ryu.cmd import manager
+from pprint import pprint
 import networkx as nx
 import pickle
 
@@ -92,16 +93,18 @@ class Controller(ControllerTemplate):
         # print(flows)
         # return flows
         flows = {}
+        flow_set = set() # deduplicate
         nodes = list(self.topology.nodes())  # Assume nodes are already integers or convertible to integers
-        while len(flows) < m:
+        while len(flow_set) < m:
             source = random.choice(nodes)
             target = random.choice([node for node in nodes if node != source])
             paths = list(nx.all_simple_paths(self.topology, source=source, target=target))
             if paths:
                 selected_path = random.choice(paths)
-                converted_path = [int(node) for node in selected_path]
-                flow_id = len(flows)
-                flows[flow_id] = converted_path
+                converted_path = (int(node) for node in selected_path)
+                flow_set.add(converted_path)
+        for index, flow in zip(range(m), flow_set):
+            flows[index] = list(flow)
 
         return flows
 
@@ -188,6 +191,7 @@ class Controller(ControllerTemplate):
         for stat in body:
             flow_id = stat.cookie
             self.flow_stats[flow_id] = stat.packet_count
+        pprint(self.flow_stats)
 
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
