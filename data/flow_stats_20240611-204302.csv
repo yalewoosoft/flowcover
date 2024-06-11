@@ -1,0 +1,23 @@
+Graph,Number of Flows,Naive Cost,Optimized Cost
+Erdos-Renyi,0,0,0
+Erdos-Renyi,10,2960,1160
+Erdos-Renyi,20,5920,2320
+Erdos-Renyi,30,8880,3480
+Erdos-Renyi,40,11840,4440
+Erdos-Renyi,50,14800,5400
+Erdos-Renyi,60,17760,6360
+Erdos-Renyi,70,20720,7320
+Erdos-Renyi,80,23680,8280
+Erdos-Renyi,90,26640,9240
+Erdos-Renyi,100,29600,10200
+Waxman,0,0,0
+Waxman,10,2960,1160
+Waxman,20,5920,2120
+Waxman,30,8880,3080
+Waxman,40,11840,4040
+Waxman,50,14800,5000
+Waxman,60,17760,5960
+Waxman,70,20720,6920
+Waxman,80,23680,7880
+Waxman,90,26640,8840
+Waxman,100,29600,9800
