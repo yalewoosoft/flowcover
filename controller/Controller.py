@@ -141,9 +141,10 @@ class Controller(ControllerTemplate):
         construction_time_start = timer()
         # Step 1: construction
         flows = list(self.flows.keys())
-        switch_flows = deepcopy(self.switch_flows)
-        for f in flows:
-            switch_flows[-f] = [f]
+        switch_flows = self.switch_flows
+        #switch_flows = deepcopy(self.switch_flows)
+        #for f in flows:
+        #    switch_flows[-f] = [f]
         print(f'flows is{flows}')
         print(f'switch_flows is{switch_flows}')
         construction_time_end = timer()
