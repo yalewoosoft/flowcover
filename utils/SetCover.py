@@ -37,7 +37,7 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
             current_ratio, switch_id, flows = heapq.heappop(priority_queue)
             newly_covered_flows = set(flows).intersection(uncovered_flows)
             if newly_covered_flows:
-                picked_switch[switch_id] = newly_covered_flows
+                picked_switch[switch_id] = flows
                 uncovered_flows.difference_update(newly_covered_flows)
                 priority_queue = update_priority_queue()
                 print(f"Picked switch {switch_id} covering flows {newly_covered_flows} with ratio {current_ratio}.")
@@ -45,8 +45,11 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
             # No efficient switch in priority queue, pick a random flow and cover it
             flow = random.choice(list(uncovered_flows))
             chosen_switch = random.choice(flow_to_switch_ids[flow])
-            picked_switch[-1 * chosen_switch] = [flow]
-            uncovered_flows.difference_update(s[chosen_switch])
+            if picked_switch.get(chosen_switch) is None:
+                picked_switch[chosen_switch] = [flow]
+            else:
+                picked_switch[chosen_switch].append(flow)
+            uncovered_flows.difference_update([flow])
             priority_queue = update_priority_queue()
             print(f"Randomly picked switch {chosen_switch} for single flow {flow} due to high ratio or no better option.")
 
@@ -59,7 +62,7 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
 
 
 if "__main__" == __name__:
-    f =[1,2,3,4,5,6,7]
+    f =[1,2,3,4,5,6,7,8]
     s = {
         1:[1,2,3],
         2:[1],
@@ -67,6 +70,6 @@ if "__main__" == __name__:
         4:[2,5],
         5:[3,5,6],
         6:[3,4,6],
-        7:[2,4,7]
+        7:[2,4,7,8]
     }
     print(set_cover_solve(f,s))

@@ -171,19 +171,13 @@ class Controller(ControllerTemplate):
         datapath_id = int(str(datapath.id), 16)
         for switch_id, flows in self.polling.items():
             if datapath_id ==switch_id:
-                if switch_id > 0:
-                    # Request all flow stats for positive switch IDs
+                for flow_id in flows:
+                    cookie = flow_id  # Assuming flow_id can be directly used as a cookie
+                    # cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
                     req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
-                                              ofproto.OFPP_ANY, ofproto.OFPG_ANY)
-                    datapath.send_msg(req)
-                else:
-                    for flow_id in flows:
-                        cookie = flow_id  # Assuming flow_id can be directly used as a cookie
-                        cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
-                        req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
                                                   ofproto.OFPP_ANY, ofproto.OFPG_ANY,
-                                                  cookie, cookie_mask)
-                        datapath.send_msg(req)
+                                                  cookie)
+                    datapath.send_msg(req)
 
 
 
