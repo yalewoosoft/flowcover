@@ -3,6 +3,7 @@ import signal
 import sys
 import os
 import time
+import random
 
 from ryu.base import app_manager
 from ryu import cfg
@@ -10,6 +11,8 @@ from ryu.controller import ofp_event
 from ryu.controller.controller import Datapath
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.ofproto.ofproto_v1_3_parser import OFPFlowStatsRequest
+from ryu.ofproto.ofproto_v1_3 import OFPMPF_REQ_MORE
 import ryu.ofproto.ofproto_v1_3_parser as parser
 import ryu.ofproto.ofproto_v1_3 as ofproto
 from ryu.lib import hub
@@ -22,9 +25,9 @@ from ryu.cmd import manager
 import networkx as nx
 import pickle
 
+import utils.SetCover
 from utils.HostIdIPConverter import id_to_ip
 from .ControllerTemplate import ControllerTemplate
-
 
 
 class Controller(ControllerTemplate):
@@ -33,7 +36,7 @@ class Controller(ControllerTemplate):
     switch_host_port: dict[(int, int), int] # (switch id, host id) -> port id
     flows: dict[int, [int]] # flow id -> list of switches on flow path
     switch_flows: dict[int, [int]] # switch id -> list of flow ids that pass though it
-    polling: dict[(int, int), int] # switch id -> flows to poll statistics, [] if not polled
+    polling: dict[int, [int]] # switch id -> flows to poll statistics, [] if not polled
     flow_stats: dict[int, int] # flow id -> number of packets
     switch_configured: dict[int, bool] # switch id -> bool
     online_switches: dict[int, Datapath] # switch id -> switch object
@@ -83,14 +86,22 @@ class Controller(ControllerTemplate):
             to a list of switch ids that describe the path,
         """
 
+        # flows = {}
+        # for flow_id, path in enumerate(nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())):
+        #     flows[flow_id] = path
+        # print(flows)
+        # return flows
         flows = {}
-        random_paths = nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())
-        print(list(random_paths))
-
-        for flow_id, path in enumerate(random_paths):
-            flows[flow_id] = list(map(int, path))
-
-        print(flows)
+        nodes = list(self.topology.nodes())  # Assume nodes are already integers or convertible to integers
+        while len(flows) < m:
+            source = random.choice(nodes)
+            target = random.choice([node for node in nodes if node != source])
+            paths = list(nx.all_simple_paths(self.topology, source=source, target=target))
+            if paths:
+                selected_path = random.choice(paths)
+                converted_path = [int(node) for node in selected_path]
+                flow_id = len(flows)
+                flows[flow_id] = converted_path
 
         return flows
 
@@ -101,14 +112,14 @@ class Controller(ControllerTemplate):
         Use self.flows
         :return:
         """
-        switch_flow_list = {}
+        switch_flow_dict = {}
 
         for flow_id, switches in self.flows.items():
             for switch_id in switches:
-                if switch_id not in switch_flow_list:
-                    switch_flow_list[switch_id] = []
-                switch_flow_list[switch_id].append(flow_id)
-        return switch_flow_list
+                switch_id = int(switch_id)
+                switch_flow_dict.setdefault(switch_id, set()).add(flow_id)
+
+        return {switch_id: list(flow_ids) for switch_id, flow_ids in switch_flow_dict.items()}
 
     def write_flows_to_file(self) -> None:
         with open('random_flows.bin', 'wb') as f:
@@ -123,16 +134,22 @@ class Controller(ControllerTemplate):
         """
         construction_time_start = timer()
         # Step 1: construction
+        flows = list(self.flows.keys())
+        switch_flows = self.switch_flows
+        print(f'flows is{flows}')
+        print(f'switch_flows is{switch_flows}')
         construction_time_end = timer()
         construction_time_elapsed = construction_time_end - construction_time_start
 
         calc_time_start = timer()
+
         # Step 2: calculation
+        polling = utils.SetCover.set_cover_solve(flows,switch_flows)
         # call utils.set_cover_solve here
         calc_time_end = timer()
         calc_time_elapsed = calc_time_end - calc_time_start
         # Write two timers to csv
-        return {}
+        return polling
 
     def request_stats(self, datapath: Datapath) -> None:
         """
@@ -142,7 +159,22 @@ class Controller(ControllerTemplate):
         To poll one/some stats on a switch: use OFPFlowStatsRequest with cookies.
         Refer to Ryu documentation for more details.
         """
-        pass
+        for switch_id, flows in self.polling.items():
+            if switch_id > 0:
+                # Request all flow stats for positive switch IDs
+                req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
+                                          ofproto.OFPP_ANY, ofproto.OFPG_ANY)
+                datapath.send_msg(req)
+            else:
+                for flow_id in flows:
+                    cookie = flow_id  # Assuming flow_id can be directly used as a cookie
+                    cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
+                    req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
+                                              ofproto.OFPP_ANY, ofproto.OFPG_ANY,
+                                              cookie, cookie_mask)
+                    datapath.send_msg(req)
+
+
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev) -> None:
@@ -213,11 +245,11 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
-        self.remove_flows(ev.msg.datapath, 0)
+        # self.remove_flows(ev.msg.datapath, 0)
         current_switch_id = int(ev.msg.datapath.id)
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
-            last_switch_id = switch_list[-1]
+            last_switch_id = int(switch_list[-1])
             last_switch_ip = id_to_ip(last_switch_id)
             for counter, switch_id in enumerate(switch_list):
                 switch_id = int(switch_id)
@@ -228,7 +260,7 @@ class Controller(ControllerTemplate):
                         host_port = self.switch_host_port[(current_switch_id, last_switch_id)]
                         actions = [parser.OFPActionOutput(host_port)]
                     else:
-                        next_switch_id = switch_list[counter + 1]
+                        next_switch_id = int(switch_list[counter + 1])
                         out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
                         actions = [parser.OFPActionOutput(out_port)]
                     match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP
