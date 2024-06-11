@@ -159,20 +159,22 @@ class Controller(ControllerTemplate):
         To poll one/some stats on a switch: use OFPFlowStatsRequest with cookies.
         Refer to Ryu documentation for more details.
         """
+        datapath_id = int(str(datapath.id), 16)
         for switch_id, flows in self.polling.items():
-            if switch_id > 0:
-                # Request all flow stats for positive switch IDs
-                req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
-                                          ofproto.OFPP_ANY, ofproto.OFPG_ANY)
-                datapath.send_msg(req)
-            else:
-                for flow_id in flows:
-                    cookie = flow_id  # Assuming flow_id can be directly used as a cookie
-                    cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
+            if datapath_id ==switch_id:
+                if switch_id > 0:
+                    # Request all flow stats for positive switch IDs
                     req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
-                                              ofproto.OFPP_ANY, ofproto.OFPG_ANY,
-                                              cookie, cookie_mask)
+                                              ofproto.OFPP_ANY, ofproto.OFPG_ANY)
                     datapath.send_msg(req)
+                else:
+                    for flow_id in flows:
+                        cookie = flow_id  # Assuming flow_id can be directly used as a cookie
+                        cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
+                        req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
+                                                  ofproto.OFPP_ANY, ofproto.OFPG_ANY,
+                                                  cookie, cookie_mask)
+                        datapath.send_msg(req)
 
 
 
