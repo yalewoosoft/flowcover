@@ -126,6 +126,11 @@ def send_traffic(src: int, dst: int, num_bytes: int) -> None:
     src_host.popen(['iperf3', '-c', dst_ip, '-n', str(num_bytes)], cwd="/tmp/", stderr=subprocess.DEVNULL)
 
 def handle_signal_emulate_traffic(sig, frame):
+    assert network is not None
+    for i in network.keys():
+        if i.startswith('h'):
+            host: Host = network.get(i)
+            host.popen(['killall', 'iperf3'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print('Signal USR1 received, start sending traffic')
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
