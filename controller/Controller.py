@@ -292,6 +292,7 @@ class Controller(ControllerTemplate):
 
 def main():
     # Register a new CLI parameter for Ryu; no docs available; see Stackoverflow #25601133
+    # CLI param: --flowcover-num-flows
     cfg.CONF.register_cli_opts(
         [
             cfg.IntOpt('num-flows', default=10)

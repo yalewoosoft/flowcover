@@ -1,5 +1,6 @@
 import subprocess
 import argparse
+import time
 
 import networkx as nx
 from mininet.cli import CLI
@@ -17,11 +18,13 @@ from typing import Optional
 import os
 import signal
 
+from mininet.util import pmonitor
+
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
 network: Optional[Mininet] = None
-NUM_BYTES_PER_FLOW = 10000
+NUM_BYTES_PER_FLOW = 100000000000000
 def port_id_generator():
     current_id = 1
     while True:
@@ -122,11 +125,15 @@ def send_traffic(src: int, dst: int, num_bytes: int) -> None:
     src_host: Host = network.get(f'h{src}')
     dst_host: Host = network.get(f'h{dst}')
     dst_ip = HostIdIPConverter.id_to_ip(dst)
-    dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    src_host.popen(['iperf3', '-c', dst_ip, '-n', str(num_bytes)], cwd="/tmp/", stderr=subprocess.DEVNULL)
+    dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(num_bytes), '-t', '300'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    #dst_popen.communicate()
+    # Open stdin/stdout
+
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
+    print('Killing all existing iperf3')
     for i in network.keys():
         if i.startswith('h'):
             host: Host = network.get(i)
