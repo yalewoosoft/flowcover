@@ -23,6 +23,7 @@ from timeit import default_timer as timer
 from netaddr import IPAddress, IPNetwork
 from ryu.cmd import manager
 from pprint import pprint
+from copy import deepcopy
 import networkx as nx
 import pickle
 
@@ -55,11 +56,13 @@ class Controller(ControllerTemplate):
         print('Topology obtained from mininet')
         self.flows = self.generate_random_flows(num_flows)
         print(f'{num_flows} Random flows generated')
+        pprint(self.flows)
         self.switch_flows = self.generate_switch_flow_list()
         self.write_flows_to_file()
         print('Flows written to file to notify mininet')
         self.polling = self.set_cover()
-        print('SetCover calculation finished')
+        print('SetCover calculation finished, solution:')
+        pprint(self.polling)
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
 
@@ -138,7 +141,9 @@ class Controller(ControllerTemplate):
         construction_time_start = timer()
         # Step 1: construction
         flows = list(self.flows.keys())
-        switch_flows = self.switch_flows
+        switch_flows = deepcopy(self.switch_flows)
+        for f in flows:
+            switch_flows[-f] = f
         print(f'flows is{flows}')
         print(f'switch_flows is{switch_flows}')
         construction_time_end = timer()

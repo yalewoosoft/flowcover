@@ -8,6 +8,7 @@ def erdos_renyi_generator(n: int, p: float) -> Graph:
     for s1, s2 in product(range(1, n + 1), range(1, n + 1)):
         if s1 >= s2:
             continue
+        print(f'Evaluating edge {s1},{s2}')
         x = random()
         if x <= p:
             g.add_edge(s1, s2)
