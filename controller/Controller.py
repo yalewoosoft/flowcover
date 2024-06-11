@@ -188,6 +188,8 @@ class Controller(ControllerTemplate):
         Write results to self.flow_stats.
         """
         body = ev.msg.body
+
+        pprint(body)
         for stat in body:
             flow_id = stat.cookie
             self.flow_stats[flow_id] = stat.packet_count
@@ -252,7 +254,7 @@ class Controller(ControllerTemplate):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
         # self.remove_flows(ev.msg.datapath, 0)
-        current_switch_id = int(ev.msg.datapath.id)
+        current_switch_id = int(str(ev.msg.datapath.id),16)
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
             last_switch_id = int(switch_list[-1])
@@ -273,6 +275,13 @@ class Controller(ControllerTemplate):
                                             , ipv4_dst=last_switch_ip)
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
+        print('-----------------------------------------------')
+        self.logger.debug('OFPSwitchFeatures received: '
+                          'datapath_id=0x%016x n_buffers=%d '
+                          'n_tables=%d auxiliary_id=%d '
+                          'capabilities=0x%08x',
+                          ev.msg.datapath_id, ev.msg.n_buffers, ev.msg.n_tables,
+                          ev.msg.auxiliary_id, ev.msg.capabilities)
         if all(self.switch_configured.values()):
             print('All switches setup complete; sending signal to notify mininet')
             # if all switch configured: notify mininet to start generating traffic
