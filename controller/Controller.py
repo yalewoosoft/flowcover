@@ -253,10 +253,12 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
-        # self.remove_flows(ev.msg.datapath, 0)
+        self.remove_flows(ev.msg.datapath, 0)
         current_switch_id = int(str(ev.msg.datapath.id),16)
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
+            first_switch_id = int(switch_list[0])
+            first_switch_ip = id_to_ip(first_switch_id)
             last_switch_id = int(switch_list[-1])
             last_switch_ip = id_to_ip(last_switch_id)
             for counter, switch_id in enumerate(switch_list):
@@ -271,8 +273,11 @@ class Controller(ControllerTemplate):
                         next_switch_id = int(switch_list[counter + 1])
                         out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
                         actions = [parser.OFPActionOutput(out_port)]
-                    match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP
-                                            , ipv4_dst=last_switch_ip)
+                    match = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IP,
+                        ipv4_src=first_switch_ip,
+                        ipv4_dst=last_switch_ip
+                    )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
         print('-----------------------------------------------')
