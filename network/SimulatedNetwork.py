@@ -9,9 +9,11 @@ from mininet.topo import Topo
 from ipmininet.iptopo import IPTopo
 from itertools import product
 from random import random
-from mininet.clean import cleanup
+import ipmininet.clean as ipm_clean
+import mininet.clean as m_clean
 from ipmininet.ipnet import IPNet
-from mininet.node import OVSSwitch, RemoteController, Host
+from mininet.node import OVSSwitch, RemoteController
+from ipmininet.host import IPHost
 import pickle
 from random import sample
 from math import floor, sqrt
@@ -19,7 +21,6 @@ from typing import Optional
 import os
 import signal
 
-from mininet.util import pmonitor
 
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
@@ -53,7 +54,8 @@ class SimulatedNetworkTopology(IPTopo):
         :param packet_loss_ratio: percent of packet loss on a lossy switch, in float
         :return: None
         """
-        cleanup()
+        ipm_clean.cleanup()
+        m_clean.cleanup()
         assert 0 <= prob <= 1
         assert 0 <= waxman_alpha <= 1
         assert 0 <= waxman_beta <= 1
@@ -129,7 +131,7 @@ def handle_signal_emulate_traffic(sig, frame):
     print('Killing all existing iperf3')
     for i in network.keys():
         if i.startswith('h'):
-            host: Host = network.get(i)
+            host: IPHost = network.get(i)
             host.popen(['killall', 'iperf3'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print('Signal USR1 received, start sending traffic')
     # read random flows from file
@@ -139,15 +141,15 @@ def handle_signal_emulate_traffic(sig, frame):
         print('All destinations to start server:', flow_dst)
         # setup all servers
         for dst in flow_dst:
-            dst_host: Host = network.get(f'h{dst}')
+            dst_host: IPHost = network.get(f'h{dst}')
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
         time.sleep(3)
         for flow in flows.values():
             src = flow[0]
             dst = flow[-1]
-            src_host: Host = network.get(f'h{src}')
-            dst_host: Host = network.get(f'h{dst}')
+            src_host: IPHost = network.get(f'h{src}')
+            dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
@@ -181,9 +183,13 @@ def main():
             loss_switch_ratio=args.loss_switch_ratio,
             packet_loss_ratio=args.packet_loss_ratio,
         ),
-        controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633, protocols="OpenFlow13")
+        allocate_IPs=False,
+        switch=OVSSwitch,
+        controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6653, protocols="OpenFlow13")
     )
+    #controller = RemoteController('c1', ip='127.0.0.1', port=6633, protocols="OpenFlow13")
     network.staticArp()
+    #network.addController(controller)
     with open('pid.txt', 'w', encoding='utf-8') as f:
         # write mininet pid to file; Ryu uses this to notify mininet to start sending traffic
         f.write(str(os.getpid()))
