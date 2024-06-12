@@ -104,7 +104,7 @@ class Controller(ControllerTemplate):
             paths = list(nx.all_simple_paths(self.topology, source=source, target=target))
             if paths:
                 selected_path = random.choice(paths)
-                converted_path = (int(node) for node in selected_path)
+                converted_path = tuple(int(node) for node in selected_path)
                 flow_set.add(converted_path)
         for index, flow in zip(range(m), flow_set):
             flows[index] = list(flow)
