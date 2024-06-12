@@ -147,8 +147,12 @@ def handle_signal_emulate_traffic(sig, frame):
             src_host: Host = network.get(f'h{src}')
             dst_host: Host = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
-            src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
+            if NUM_BYTES_PER_FLOW > 0:
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30'], cwd="/tmp/",
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
