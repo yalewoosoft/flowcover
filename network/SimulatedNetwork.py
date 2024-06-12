@@ -134,13 +134,14 @@ def handle_signal_emulate_traffic(sig, frame):
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
-        flow_dst = map(lambda flow: flow[-1], flows.values())
+        flow_dst = set(map(lambda flow: flow[-1], flows.values()))
+        print('All destinations to start server:', flow_dst)
         # setup all servers
         for dst in flow_dst:
             dst_host: Host = network.get(f'h{dst}')
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
-        time.sleep(0.5)
+        time.sleep(3)
         for flow in flows.values():
             src = flow[0]
             dst = flow[-1]
