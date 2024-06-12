@@ -3,13 +3,14 @@ import argparse
 import time
 
 import networkx as nx
-from mininet.cli import CLI
+from ipmininet.cli import IPCLI
 from mininet.log import setLogLevel
 from mininet.topo import Topo
+from ipmininet.iptopo import IPTopo
 from itertools import product
 from random import random
 from mininet.clean import cleanup
-from mininet.net import Mininet
+from ipmininet.ipnet import IPNet
 from mininet.node import OVSSwitch, RemoteController, Host
 import pickle
 from random import sample
@@ -23,7 +24,7 @@ from mininet.util import pmonitor
 from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
-network: Optional[Mininet] = None
+network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 100000000000000
 def port_id_generator():
     current_id = 1
@@ -31,7 +32,7 @@ def port_id_generator():
         yield current_id
         current_id += 1
 
-class SimulatedNetworkTopology(Topo):
+class SimulatedNetworkTopology(IPTopo):
     my_switches: [str]
     lossy_switches: [str]
     switch_switch_port: dict[(int, int), int]
@@ -165,7 +166,7 @@ def main():
     global network
     global NUM_BYTES_PER_FLOW
     NUM_BYTES_PER_FLOW = args.num_bytes_sent
-    network = Mininet(
+    network = IPNet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
             random_type=args.random_type,
@@ -187,5 +188,5 @@ def main():
 if __name__ == '__main__':
     signal.signal(signal.SIGUSR1, handle_signal_emulate_traffic)
     net = main()
-    CLI(net)
+    IPCLI(net)
     net.stop()
