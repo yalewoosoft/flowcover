@@ -120,19 +120,11 @@ class SimulatedNetworkTopology(Topo):
             pickle.dump(self.switch_host_port, f)
 
 
-def send_traffic(src: int, dst: int, num_bytes: int) -> None:
-    assert network is not None
-    src_host: Host = network.get(f'h{src}')
-    dst_host: Host = network.get(f'h{dst}')
-    dst_ip = HostIdIPConverter.id_to_ip(dst)
-    dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(num_bytes), '-t', '300'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    #dst_popen.communicate()
-    # Open stdin/stdout
 
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
+    global NUM_BYTES_PER_FLOW
     print('Killing all existing iperf3')
     for i in network.keys():
         if i.startswith('h'):
@@ -142,11 +134,21 @@ def handle_signal_emulate_traffic(sig, frame):
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
+        flow_dst = map(lambda flow: flow[-1], flows.values())
+        # setup all servers
+        for dst in flow_dst:
+            dst_host: Host = network.get(f'h{dst}')
+            dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL)
+        time.sleep(0.5)
         for flow in flows.values():
             src = flow[0]
             dst = flow[-1]
-            send_traffic(src, dst, NUM_BYTES_PER_FLOW)
-
+            src_host: Host = network.get(f'h{src}')
+            dst_host: Host = network.get(f'h{dst}')
+            dst_ip = HostIdIPConverter.id_to_ip(dst)
+            src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
@@ -157,9 +159,12 @@ def main():
     parser.add_argument('--waxman-beta', default=0.5, type=float)
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
+    parser.add_argument('--num-bytes-sent', default=10000000, type=int)
     args = parser.parse_args()
     setLogLevel('debug')
     global network
+    global NUM_BYTES_PER_FLOW
+    NUM_BYTES_PER_FLOW = args.num_bytes_sent
     network = Mininet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
