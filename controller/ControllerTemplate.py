@@ -138,14 +138,14 @@ class ControllerTemplate(app_manager.RyuApp):
         # network nodes so we don't have to bother with subsequent
         # ARP packets anymore.
         actions = [parser.OFPActionOutput(in_port)]
-        self.program_flow(datapath, match, actions, priority=1)
+        self.program_flow(datapath, match, actions, priority=1, cookie=100000000000)
 
         # Flood the received ARP message on all ports of the switch
         self.send_pkt(datapath, data, port=ofproto.OFPP_FLOOD)
 
     # This decorator makes sure that the function below is invoked
     # every time a new switch is connected to our controller.
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    #@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def __cockpit_app_switch_features_handler(self, ev):
         datapath = ev.msg.datapath
 

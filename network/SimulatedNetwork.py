@@ -86,7 +86,7 @@ class SimulatedNetworkTopology(Topo):
         # If two loss switches are connected: add sqrt(a) and sqrt(b).
         for s in self.graph.nodes:
             # add a host for every switch, ip generated using Converter class
-            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/32")
+            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/16")
             # add an edge to host and switch
             id_1 = next(id_generator)
             # calculate loss rate if switch lossy:
@@ -172,6 +172,7 @@ def main():
         ),
         controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633, protocols="OpenFlow13")
     )
+    network.staticArp()
     with open('pid.txt', 'w', encoding='utf-8') as f:
         # write mininet pid to file; Ryu uses this to notify mininet to start sending traffic
         f.write(str(os.getpid()))
