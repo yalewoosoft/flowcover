@@ -1,6 +1,8 @@
 from ryu.base import app_manager
 import ryu.ofproto.ofproto_v1_3_parser as parser
 import ryu.ofproto.ofproto_v1_3 as ofproto
+from ryu.controller import ofp_event
+from ryu.controller.handler import set_ev_cls, CONFIG_DISPATCHER
 from ryu.lib.packet import ether_types
 
 
@@ -143,7 +145,6 @@ class ControllerTemplate(app_manager.RyuApp):
 
     # This decorator makes sure that the function below is invoked
     # every time a new switch is connected to our controller.
-    '''
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def __cockpit_app_switch_features_handler(self, ev):
         datapath = ev.msg.datapath
@@ -159,6 +160,7 @@ class ControllerTemplate(app_manager.RyuApp):
                 ofproto.OFPP_CONTROLLER,
                 ofproto.OFPCML_NO_BUFFER
             )],
+            cookie=100000000000,
             hard_timeout=0,  # never delete this flow
             idle_timeout=0  # never delete this flow
         )
@@ -171,4 +173,3 @@ class ControllerTemplate(app_manager.RyuApp):
                 0xffff
             )
         )
-        '''
