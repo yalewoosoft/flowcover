@@ -89,7 +89,7 @@ class SimulatedNetworkTopology(IPTopo):
         # If two loss switches are connected: add sqrt(a) and sqrt(b).
         for s in self.graph.nodes:
             # add a host for every switch, ip generated using Converter class
-            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/16")
+            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/32")
             # add an edge to host and switch
             id_1 = next(id_generator)
             # calculate loss rate if switch lossy:
@@ -114,6 +114,7 @@ class SimulatedNetworkTopology(IPTopo):
             self.switch_switch_port[(s1, s2)] = id_1
             self.switch_switch_port[(s2, s1)] = id_2
         self.write_initial_topology()
+        super().build()
 
     def write_initial_topology(self):
         nx.write_adjlist(self.graph, 'topology.bin')

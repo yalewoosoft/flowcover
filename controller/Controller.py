@@ -11,6 +11,7 @@ from ryu.controller import ofp_event
 from ryu.controller.controller import Datapath
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.lib.packet import icmpv6
 from ryu.ofproto.ofproto_v1_3_parser import OFPFlowStatsRequest
 from ryu.ofproto.ofproto_v1_3 import OFPMPF_REQ_MORE
 import ryu.ofproto.ofproto_v1_3_parser as parser
@@ -243,9 +244,10 @@ class Controller(ControllerTemplate):
         if eth.ethertype == ether_types.ETH_TYPE_ARP:
             self.handle_arp(datapath, in_port, eth, data)
             return
-        if eth.ethertype == ether_types.ETH_TYPE_IP:
-            pass
+        if eth.ethertype == ether_types.ETH_TYPE_IPV6:
+            pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
     '''
+
 
     # This decorator makes sure that the function below is invoked
     # every time a new switch is connected to our controller.
@@ -274,11 +276,25 @@ class Controller(ControllerTemplate):
                         out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
                         actions = [parser.OFPActionOutput(out_port)]
                     match = parser.OFPMatch(
-                        eth_type=ether_types.ETH_TYPE_IP,
-                        ipv4_src=first_switch_ip,
-                        ipv4_dst=last_switch_ip
+                        eth_type=ether_types.ETH_TYPE_IPV6,
+                        ipv6_src=f"{first_switch_ip}/64",
+                        ipv6_dst=f"{last_switch_ip}/64"
                     )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
+                    match = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IPV6,
+                        ip_proto=58,
+                        icmpv6_type=135,
+                        ipv6_nd_target=last_switch_ip
+                    )
+                    self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
+                    match = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IPV6,
+                        ip_proto=58,
+                        icmpv6_type=136,
+                        ipv6_nd_target=last_switch_ip
+                    )
+                    self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
         print('-----------------------------------------------')
         self.logger.debug('OFPSwitchFeatures received: '
