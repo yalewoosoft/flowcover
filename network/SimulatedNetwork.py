@@ -4,6 +4,7 @@ import time
 
 import networkx as nx
 from ipmininet.cli import IPCLI
+from ipmininet.router.config import RouterConfig, OSPF6
 from mininet.log import setLogLevel
 from mininet.topo import Topo
 from ipmininet.iptopo import IPTopo

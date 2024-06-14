@@ -1,3 +1,4 @@
+import copy
 import json
 import signal
 import sys
@@ -230,7 +231,6 @@ class Controller(ControllerTemplate):
             hub.sleep(10)
 
 
-    '''
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         """Packet-In Callback."""
@@ -245,8 +245,42 @@ class Controller(ControllerTemplate):
             self.handle_arp(datapath, in_port, eth, data)
             return
         if eth.ethertype == ether_types.ETH_TYPE_IPV6:
-            pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
-    '''
+            pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
+            if pkt_ipv6.nxt == 58:
+                pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
+                if pkt_icmpv6.type_ == 135:
+                    # create neighbor advertisement
+                    ndp_dst = pkt_icmpv6.data.dst
+                    response_pkt = packet.Packet()
+                    response_pkt.add_protocol(
+                        ethernet.ethernet(
+                            ethertype=ether_types.ETH_TYPE_IPV6,
+                            dst=eth.src,
+                            src='24:CD:AB:CD:AB:CD'
+                        )
+                    )
+                    response_ipv6 = copy.deepcopy(pkt_ipv6)
+                    response_ipv6.dst=pkt_ipv6.src
+                    response_ipv6.src=ndp_dst
+                    response_ipv6.nxt=58
+                    response_pkt.add_protocol(
+                        response_ipv6
+                    )
+                    response_pkt.add_protocol(
+                        icmpv6.icmpv6(
+                            type_=136,
+                            code=0,
+                            data=icmpv6.nd_neighbor(
+                                dst=ndp_dst,
+                                res=0x7,
+                                option=icmpv6.nd_option_tla(
+                                    hw_src='24:CD:AB:CD:AB:CD'
+                                )
+                            )
+                        )
+                    )
+                    self.send_pkt(datapath, response_pkt, port=in_port)
+
 
 
     # This decorator makes sure that the function below is invoked
@@ -255,8 +289,30 @@ class Controller(ControllerTemplate):
     def switch_features_handler(self, ev):
         """SwitchConnect Callback."""
         print(f"Switch {ev.msg.datapath.id} connected.")
+        dp = ev.msg.datapath
+        parser = dp.ofproto_parser
+        current_switch_id = int(str(ev.msg.datapath.id), 16)
         self.remove_flows(ev.msg.datapath, 0)
-        current_switch_id = int(str(ev.msg.datapath.id),16)
+
+
+        # Forward NDP to controller
+        match = parser.OFPMatch(
+            eth_type=ether_types.ETH_TYPE_IPV6,
+            ip_proto=58,
+            icmpv6_type=135,
+        )
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+        self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
+
+        # Forward reinjected NDP packet to host
+        match = parser.OFPMatch(
+            eth_type=ether_types.ETH_TYPE_IPV6,
+            ip_proto=58,
+            icmpv6_type=136,
+        )
+        actions = [parser.OFPActionOutput(self.switch_host_port[(current_switch_id, current_switch_id)])]
+        self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
+
         for flow_id in self.flows:
             switch_list = self.flows[flow_id]
             first_switch_id = int(switch_list[0])
@@ -266,8 +322,6 @@ class Controller(ControllerTemplate):
             for counter, switch_id in enumerate(switch_list):
                 switch_id = int(switch_id)
                 if switch_id == current_switch_id:
-                    dp = ev.msg.datapath
-                    parser = dp.ofproto_parser
                     if switch_id == last_switch_id:
                         host_port = self.switch_host_port[(current_switch_id, last_switch_id)]
                         actions = [parser.OFPActionOutput(host_port)]
@@ -281,20 +335,6 @@ class Controller(ControllerTemplate):
                         ipv6_dst=f"{last_switch_ip}/64"
                     )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
-                    match = parser.OFPMatch(
-                        eth_type=ether_types.ETH_TYPE_IPV6,
-                        ip_proto=58,
-                        icmpv6_type=135,
-                        ipv6_nd_target=last_switch_ip
-                    )
-                    self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
-                    match = parser.OFPMatch(
-                        eth_type=ether_types.ETH_TYPE_IPV6,
-                        ip_proto=58,
-                        icmpv6_type=136,
-                        ipv6_nd_target=last_switch_ip
-                    )
-                    self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
         self.switch_configured[current_switch_id] = True
         print('-----------------------------------------------')
         self.logger.debug('OFPSwitchFeatures received: '
