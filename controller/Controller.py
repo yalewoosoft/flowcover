@@ -191,7 +191,7 @@ class Controller(ControllerTemplate):
         """
         body = ev.msg.body
 
-        pprint(body)
+        #pprint(body)
         for stat in body:
             flow_id = stat.cookie
             self.flow_stats[flow_id] = stat.byte_count
