@@ -10,3 +10,6 @@ def ip_to_id(ip: str) -> int:
         return int(id_hex, 16)
     except Exception:
         raise ValueError('invalid ip')
+
+def id_to_mac(host_id: int) -> str:
+    return '24:CD:AB:CD:AB:CD'

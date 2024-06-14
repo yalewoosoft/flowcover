@@ -334,7 +334,7 @@ class Controller(ControllerTemplate):
                         ipv6_src=f"{first_switch_ip}/64",
                         ipv6_dst=f"{last_switch_ip}/64"
                     )
-                    self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=1)
+                    self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=2)
         self.switch_configured[current_switch_id] = True
         print('-----------------------------------------------')
         self.logger.debug('OFPSwitchFeatures received: '

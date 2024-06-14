@@ -90,7 +90,7 @@ class SimulatedNetworkTopology(IPTopo):
         # If two loss switches are connected: add sqrt(a) and sqrt(b).
         for s in self.graph.nodes:
             # add a host for every switch, ip generated using Converter class
-            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/32")
+            h = self.addHost('h%s' % s, ip=f"{HostIdIPConverter.id_to_ip(s)}/32", mac=HostIdIPConverter.id_to_mac(s))
             # add an edge to host and switch
             id_1 = next(id_generator)
             # calculate loss rate if switch lossy:
@@ -154,10 +154,10 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-6','-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-6','-c', dst_ip, '-t', '30'], cwd="/tmp/",
                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
