@@ -4,7 +4,6 @@ import time
 
 import networkx as nx
 from ipmininet.cli import IPCLI
-from ipmininet.router.config import RouterConfig, OSPF6
 from mininet.log import setLogLevel
 from mininet.topo import Topo
 from ipmininet.iptopo import IPTopo
@@ -130,12 +129,13 @@ class SimulatedNetworkTopology(IPTopo):
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
     global NUM_BYTES_PER_FLOW
+    print('Signal USR1 received, start sending traffic')
     print('Killing all existing iperf3')
     for i in network.keys():
         if i.startswith('h'):
             host: IPHost = network.get(i)
             host.popen(['killall', 'iperf3'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print('Signal USR1 received, start sending traffic')
+    print('Starting iperf3')
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
@@ -147,17 +147,17 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
         time.sleep(3)
-        for flow in flows.values():
+        for flow_id, flow in flows.items():
             src = flow[0]
             dst = flow[-1]
             src_host: IPHost = network.get(f'h{src}')
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-6','-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW)], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW), f'-L0x{flow_id:x}'], cwd="/tmp/",
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                src_popen = src_host.popen(['iperf3', '-6','-c', dst_ip, '-t', '30'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30',f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():

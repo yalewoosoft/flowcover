@@ -108,7 +108,7 @@ class Controller(ControllerTemplate):
                 selected_path = random.choice(paths)
                 converted_path = tuple(int(node) for node in selected_path)
                 flow_set.add(converted_path)
-        for index, flow in zip(range(m), flow_set):
+        for index, flow in zip(range(1,m+1), flow_set):
             flows[index] = list(flow)
 
         return flows
@@ -281,6 +281,43 @@ class Controller(ControllerTemplate):
                     )
                     self.send_pkt(datapath, response_pkt, port=in_port)
 
+    def program_single_flow(self, dp, current_switch_id: int, flow_id: int, priority: int, reverse: bool, count_stats: bool):
+        if not reverse:
+            switch_list = self.flows[flow_id]
+        else:
+            switch_list = self.flows[flow_id][::-1]
+        first_switch_id = int(switch_list[0])
+        first_switch_ip = id_to_ip(first_switch_id)
+        last_switch_id = int(switch_list[-1])
+        last_switch_ip = id_to_ip(last_switch_id)
+
+        for counter, switch_id in enumerate(switch_list):
+            switch_id = int(switch_id)
+            if switch_id == current_switch_id:
+                if switch_id == last_switch_id:
+                    host_port = self.switch_host_port[(current_switch_id, last_switch_id)]
+                    actions = [parser.OFPActionOutput(host_port)]
+                else:
+                    next_switch_id = int(switch_list[counter + 1])
+                    out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
+                    actions = [parser.OFPActionOutput(out_port)]
+                if count_stats:
+                    match = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IPV6,
+                        ipv6_src=f"{first_switch_ip}/64",
+                        ipv6_dst=f"{last_switch_ip}/64",
+                        ipv6_flabel=flow_id
+                    )
+                    self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=priority)
+                else:
+                    match = parser.OFPMatch(
+                        eth_type=ether_types.ETH_TYPE_IPV6,
+                        ipv6_src=f"{first_switch_ip}/64",
+                        ipv6_dst=f"{last_switch_ip}/64",
+                    )
+                    self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=priority)
+
+
 
 
     # This decorator makes sure that the function below is invoked
@@ -314,27 +351,10 @@ class Controller(ControllerTemplate):
         self.program_flow(cookie=1000000000, datapath=dp, match=match, actions=actions, priority=1)
 
         for flow_id in self.flows:
-            switch_list = self.flows[flow_id]
-            first_switch_id = int(switch_list[0])
-            first_switch_ip = id_to_ip(first_switch_id)
-            last_switch_id = int(switch_list[-1])
-            last_switch_ip = id_to_ip(last_switch_id)
-            for counter, switch_id in enumerate(switch_list):
-                switch_id = int(switch_id)
-                if switch_id == current_switch_id:
-                    if switch_id == last_switch_id:
-                        host_port = self.switch_host_port[(current_switch_id, last_switch_id)]
-                        actions = [parser.OFPActionOutput(host_port)]
-                    else:
-                        next_switch_id = int(switch_list[counter + 1])
-                        out_port = self.switch_switch_port[(current_switch_id, next_switch_id)]
-                        actions = [parser.OFPActionOutput(out_port)]
-                    match = parser.OFPMatch(
-                        eth_type=ether_types.ETH_TYPE_IPV6,
-                        ipv6_src=f"{first_switch_ip}/64",
-                        ipv6_dst=f"{last_switch_ip}/64"
-                    )
-                    self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=2)
+            self.program_single_flow(dp, current_switch_id, flow_id, 2, reverse=False, count_stats=False)
+            self.program_single_flow(dp, current_switch_id, flow_id, 2, reverse=True, count_stats=False)
+            self.program_single_flow(dp, current_switch_id, flow_id, 3, reverse=False, count_stats=True)
+
         self.switch_configured[current_switch_id] = True
         print('-----------------------------------------------')
         self.logger.debug('OFPSwitchFeatures received: '
