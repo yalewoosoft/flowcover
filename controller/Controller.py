@@ -32,6 +32,7 @@ import pickle
 import utils.SetCover
 from utils.HostIdIPConverter import id_to_ip
 from .ControllerTemplate import ControllerTemplate
+from utils.FlowGenerator import generate_random_flows
 
 
 class Controller(ControllerTemplate):
@@ -64,7 +65,6 @@ class Controller(ControllerTemplate):
         print('Flows written to file to notify mininet')
         self.polling = self.set_cover()
         print('SetCover calculation finished, solution:')
-        pprint(self.polling)
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
 
@@ -92,26 +92,7 @@ class Controller(ControllerTemplate):
             to a list of switch ids that describe the path,
         """
 
-        # flows = {}
-        # for flow_id, path in enumerate(nx.generate_random_paths(self.topology, sample_size=m, path_length=self.topology.number_of_nodes())):
-        #     flows[flow_id] = path
-        # print(flows)
-        # return flows
-        flows = {}
-        flow_set = set() # deduplicate
-        nodes = list(self.topology.nodes())  # Assume nodes are already integers or convertible to integers
-        while len(flow_set) < m:
-            source = random.choice(nodes)
-            target = random.choice([node for node in nodes if node != source])
-            paths = list(nx.all_simple_paths(self.topology, source=source, target=target))
-            if paths:
-                selected_path = random.choice(paths)
-                converted_path = tuple(int(node) for node in selected_path)
-                flow_set.add(converted_path)
-        for index, flow in zip(range(1,m+1), flow_set):
-            flows[index] = list(flow)
-
-        return flows
+        return generate_random_flows(m,self.topology)
 
     def generate_switch_flow_list(self) -> dict[int, [int]]:
         """
@@ -170,7 +151,7 @@ class Controller(ControllerTemplate):
         To poll one/some stats on a switch: use OFPFlowStatsRequest with cookies.
         Refer to Ryu documentation for more details.
         """
-        datapath_id = int(str(datapath.id), 16)
+        datapath_id = int(datapath.id)
         for switch_id, flows in self.polling.items():
             if datapath_id ==switch_id:
                 for flow_id in flows:
@@ -328,7 +309,8 @@ class Controller(ControllerTemplate):
         print(f"Switch {ev.msg.datapath.id} connected.")
         dp = ev.msg.datapath
         parser = dp.ofproto_parser
-        current_switch_id = int(str(ev.msg.datapath.id), 16)
+        current_switch_id = ev.msg.datapath.id
+        print(current_switch_id)
         self.remove_flows(ev.msg.datapath, 0)
 
 

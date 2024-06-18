@@ -3,6 +3,7 @@ from random import random, choice,shuffle,randint
 from utils.GraphGenerator import *
 from pprint import pprint
 
+
 def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     """
     Generate random flows in a topology. Ensures no flow is the same and uses backtracking when no unvisited neighbors are available.
@@ -13,42 +14,37 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     flows = {}
     flow_id = 0
     nodes = list(topology.nodes())
-    all_paths = set()  # To ensure unique paths
+    all_paths = set()
 
     def generate_path(start_node):
-        path = []
-        stack = [start_node]
-        visited = set()
+        path = [int(start_node)]
+        visited = {start_node}
+        path_length = randint(1, len(nodes))
+        current_node = start_node
 
-        while stack:
-            node = stack.pop()
-            if node not in visited:
-                visited.add(node)
-                path.append(node)
-                neighbors = list(topology.neighbors(node))
-                shuffle(neighbors)
-                for neighbor in neighbors:
-                    if neighbor not in visited:
-                        stack.append(neighbor)
-
-            # Limit the path length to prevent excessively long paths
-            if len(path) >= randint(1, len(nodes)):  # Path length between 2 and min(10, number of nodes)
+        for _ in range(path_length - 1):
+            neighbors = [n for n in topology.neighbors(current_node) if n not in visited and topology.has_edge(current_node, n)]
+            if not neighbors:
                 break
+            next_node = choice(neighbors)
+            path.append(int(next_node))
+            visited.add(next_node)
+            current_node = next_node
+
         return tuple(path)
 
     while len(flows) < m:
         start_node = choice(nodes)
         path = generate_path(start_node)
-        if path not in all_paths and len(path) > 1:  # Ensure path is unique and non-trivial
+        if path not in all_paths and len(path) > 1:
             all_paths.add(path)
             flows[flow_id] = list(path)
             flow_id += 1
 
     return flows
-
 if "__main__" == __name__:
-    topology = erdos_renyi_generator(200,0.5)
-    flows = generate_random_flows(500,topology)
+    topology = erdos_renyi_generator(200,0.4)
+    flows = generate_random_flows(10000,topology)
     for flow_id, paths in flows.items():
         print(flow_id, paths)
 
