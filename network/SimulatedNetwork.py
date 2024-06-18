@@ -141,12 +141,29 @@ def handle_signal_emulate_traffic(sig, frame):
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
+        '''
         flow_dst = set(map(lambda flow: flow[-1], flows.values()))
         print('All destinations to start server:', flow_dst)
         # setup all servers
         for dst in flow_dst:
             dst_host: IPHost = network.get(f'h{dst}')
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL)
+        time.sleep(1)
+        '''
+        # assign a port for every flow
+        flow_port: dict[int, int] = {}
+        flow_dst = set(map(lambda flow: flow[-1], flows.values()))
+        host_next_port: dict[int, int] = {}
+        for dst in flow_dst:
+            host_next_port[dst] = 1
+        for flow_id, flow in flows.items():
+            dst = flow[-1]
+            flow_port[flow_id] = host_next_port[dst]
+            host_next_port[dst] += 1
+            # start server on corresponding port
+            dst_host: IPHost = network.get(f'h{dst}')
+            dst_popen = dst_host.popen(['iperf3', '-s', '-p', str(flow_port[flow_id])], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
         time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
@@ -164,10 +181,10 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                        stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
