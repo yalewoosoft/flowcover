@@ -96,18 +96,18 @@ class SimulatedNetworkTopology(IPTopo):
             id_1 = next(id_generator)
             # calculate loss rate if switch lossy:
             loss_rate = 0
-            if s in self.lossy_switches:
-                loss_rate = sqrt(1-packet_loss_ratio)+1
+            if f's{s}' in self.lossy_switches:
+                loss_rate = 1-sqrt(1-packet_loss_ratio)
             self.addLink(self.my_switches[s], h, port1=id_1, loss=loss_rate*100)
             self.switch_host_port[(s, s)] = id_1
         # for the switch graph, calculate the loss rate together
         loss_rate_graph: dict[(int, int),float] = {}
         for s1, s2 in self.graph.edges:
-            if s1 in self.lossy_switches and s2 in self.lossy_switches:
+            if f's{s1}' in self.lossy_switches and f's{s2}' in self.lossy_switches:
                 loss_rate_graph[(s1, s2)] = packet_loss_ratio
-            if s1 not in self.lossy_switches and s2 not in self.lossy_switches:
+            if f's{s1}' not in self.lossy_switches and f's{s2}' not in self.lossy_switches:
                 loss_rate_graph[(s2, s1)] = 0
-            loss_rate_graph[(s1, s2)] = sqrt(1-packet_loss_ratio)+1
+            loss_rate_graph[(s1, s2)] = 1-sqrt(1-packet_loss_ratio)
         # add an edge in three steps: generate ids -> add a switch link -> record its port id
         for s1, s2 in self.graph.edges:
             id_1 = next(id_generator)
