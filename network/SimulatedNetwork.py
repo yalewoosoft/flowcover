@@ -27,6 +27,8 @@ from utils.GraphGenerator import *
 
 network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 100000000000000
+BITRATE = '1M'
+IPERF3_INTERVAL = 0.1
 def port_id_generator():
     current_id = 1
     while True:
@@ -128,7 +130,7 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
-    global NUM_BYTES_PER_FLOW
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing iperf3')
     for i in network.keys():
@@ -146,7 +148,7 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
-        time.sleep(3)
+        time.sleep(1)
         for flow_id, flow in flows.items():
             src = flow[0]
             dst = flow[-1]
@@ -154,12 +156,12 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW), f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30',f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            time.sleep(0.1)
+            time.sleep(IPERF3_INTERVAL)
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
@@ -171,11 +173,16 @@ def main():
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
     parser.add_argument('--num-bytes-sent', default=10000000, type=int)
+    parser.add_argument('--bitrate', default='10K', type=str)
+    parser.add_argument('--iperf3-interval', default=0.1, type=float)
+
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_BYTES_PER_FLOW
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
     NUM_BYTES_PER_FLOW = args.num_bytes_sent
+    BITRATE = args.bitrate
+    IPERF3_INTERVAL = args.iperf3_interval
     network = IPNet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
