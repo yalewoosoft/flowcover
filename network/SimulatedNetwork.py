@@ -17,7 +17,7 @@ from ipmininet.host import IPHost
 import pickle
 from random import sample
 from math import floor, sqrt
-from typing import Optional
+from typing import Optional, TextIO
 import os
 import signal
 
@@ -149,7 +149,15 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
         time.sleep(1)
+        client_processes: dict[int, subprocess.Popen] = {}
+        client_logs: dict[int, TextIO] = {}
         for flow_id, flow in flows.items():
+
+            # prepare log file
+            log_filename = f"logs/iperf3_{flow_id}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            client_logs[flow_id] = open(log_filename, 'w')
+
             src = flow[0]
             dst = flow[-1]
             src_host: IPHost = network.get(f'h{src}')
@@ -157,11 +165,19 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                       stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
                 src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
-                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
+        # wait for all iperf3s to finish
+        for flow_id, p in client_processes.items():
+            print(f'Flow {flow_id} send complete')
+            p.wait()
+            client_logs[flow_id].flush()
+            client_logs[flow_id].close()
+        print('All flows sent. ')
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
@@ -172,8 +188,8 @@ def main():
     parser.add_argument('--waxman-beta', default=0.5, type=float)
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
-    parser.add_argument('--num-bytes-sent', default=10000000, type=int)
-    parser.add_argument('--bitrate', default='10K', type=str)
+    parser.add_argument('--num-bytes-sent', default=1000000, type=int)
+    parser.add_argument('--bitrate', default='1M', type=str)
     parser.add_argument('--iperf3-interval', default=0.1, type=float)
 
     args = parser.parse_args()
