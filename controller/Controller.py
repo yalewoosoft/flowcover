@@ -194,7 +194,7 @@ class Controller(ControllerTemplate):
         #pprint(body)
         for stat in body:
             flow_id = stat.cookie
-            self.flow_stats[flow_id] = stat.byte_count
+            self.flow_stats[flow_id] = stat.packet_count
         pprint(self.flow_stats)
 
 
