@@ -115,11 +115,13 @@ class SimulatedNetworkTopology(IPTopo):
             self.addLink(self.my_switches[s1], self.my_switches[s2], port1=id_1, port2=id_2, loss=loss_rate_graph[(s1, s2)]*100)
             self.switch_switch_port[(s1, s2)] = id_1
             self.switch_switch_port[(s2, s1)] = id_2
-        self.write_initial_topology()
+        self.write_initial_topology(random_type)
         super().build()
 
-    def write_initial_topology(self):
+    def write_initial_topology(self, random_type: str):
         nx.write_adjlist(self.graph, 'topology.bin')
+        with open('random_type.txt', 'w') as f:
+            f.write(random_type)
         with open('switch_switch_port_id.bin', 'wb') as f:
             pickle.dump(self.switch_switch_port, f)
         with open('switch_host_port_id.bin', 'wb') as f:
