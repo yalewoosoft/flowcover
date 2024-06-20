@@ -121,7 +121,6 @@ class Controller(ControllerTemplate):
         :return: a dict: switch id -> flows to poll
         you might want to create some more helper methods.
         """
-        construction_time_start = timer()
         # Step 1: construction
         flows = list(self.flows.keys())
         switch_flows = self.switch_flows
@@ -130,17 +129,10 @@ class Controller(ControllerTemplate):
         #    switch_flows[-f] = [f]
         print(f'flows is{flows}')
         print(f'switch_flows is{switch_flows}')
-        construction_time_end = timer()
-        construction_time_elapsed = construction_time_end - construction_time_start
-
-        calc_time_start = timer()
 
         # Step 2: calculation
         polling = utils.SetCover.set_cover_solve(flows,switch_flows)
         # call utils.set_cover_solve here
-        calc_time_end = timer()
-        calc_time_elapsed = calc_time_end - calc_time_start
-        # Write two timers to csv
         return polling
 
     def request_stats(self, datapath: Datapath) -> None:
