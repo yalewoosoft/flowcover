@@ -26,7 +26,7 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     all_scc = connected_components(topology)
     for scc in all_scc:
         num_nodes = len(scc)
-        max_flows += sum((permutation_number(num_nodes, k) for k in range(1, num_nodes+1)))
+        max_flows += sum((permutation_number(num_nodes, k) for k in range(2, num_nodes+1)))
     if m > max_flows:
         raise ValueError(f"Impossible to generate {m} flows for this graph. Either raise generation probability (by changing parameters) or retry.")
 
@@ -50,7 +50,7 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     while len(flows) < m:
         start_node = choice(nodes)
         path = generate_path(start_node)
-        if path not in all_paths and len(path) >= 1:
+        if path not in all_paths and len(path) > 1:
             all_paths.add(path)
             flows[flow_id] = list(path)
             print(f'Flow {flow_id} generated.')
