@@ -17,7 +17,7 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     :return: Dictionary of flow IDs to path lists.
     """
     flows = {}
-    flow_id = 0
+    flow_id = 1
     nodes = list(topology.nodes())
     all_paths = set()
 
