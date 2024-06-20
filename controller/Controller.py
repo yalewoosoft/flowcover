@@ -46,6 +46,7 @@ class Controller(ControllerTemplate):
     flow_stats: dict[int, int] # flow id -> number of packets
     switch_configured: dict[int, bool] # switch id -> bool
     online_switches: dict[int, Datapath] # switch id -> switch object
+    random_type: str
     pid_of_mininet: int
 
     def __init__(self, *args, **kwargs):
@@ -58,6 +59,7 @@ class Controller(ControllerTemplate):
         self.switch_configured = {}
         self.get_initial_topology()
         print('Topology obtained from mininet')
+        print(f'Random Type: {self.random_type}')
         self.flows = self.generate_random_flows(num_flows)
         print(f'{num_flows} Random flows generated')
         pprint(self.flows)
@@ -75,6 +77,9 @@ class Controller(ControllerTemplate):
 
     def get_initial_topology(self) -> None:
         self.topology = nx.read_adjlist('topology.bin')
+        with open('random_type.txt', 'r') as f:
+            self.random_type = f.readline()
+            assert self.random_type in ['erdos-renyi', 'waxman', 'linear']
         with open('switch_switch_port_id.bin', 'rb') as f:
             self.switch_switch_port = pickle.load(f)
         with open('switch_host_port_id.bin', 'rb') as f:
