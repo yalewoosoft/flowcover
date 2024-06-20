@@ -281,7 +281,7 @@ class Controller(ControllerTemplate):
                         ipv6_src=f"{first_switch_ip}/64",
                         ipv6_dst=f"{last_switch_ip}/64",
                         ipv6_flabel=flow_id,
-                        tcp_flags=(0x10, 0x13)
+                        tcp_flags=0x018
                     )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=priority)
                 else:
