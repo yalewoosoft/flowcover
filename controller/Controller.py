@@ -15,12 +15,13 @@ from ryu.controller.handler import set_ev_cls
 from ryu.lib.packet import icmpv6
 from ryu.ofproto.ofproto_v1_3_parser import OFPFlowStatsRequest
 from ryu.ofproto.ofproto_v1_3 import OFPMPF_REQ_MORE
+from ryu.ofproto import inet
 import ryu.ofproto.ofproto_v1_3_parser as parser
 import ryu.ofproto.ofproto_v1_3 as ofproto
 from ryu.lib import hub
 from ryu.lib.packet import packet
 from ryu.lib.packet import ether_types
-from ryu.lib.packet import ethernet, arp, ipv4, ipv6
+from ryu.lib.packet import ethernet, arp, ipv4, ipv6,tcp
 from timeit import default_timer as timer
 from netaddr import IPAddress, IPNetwork
 from ryu.cmd import manager
@@ -32,7 +33,7 @@ import pickle
 import utils.SetCover
 from utils.HostIdIPConverter import id_to_ip
 from .ControllerTemplate import ControllerTemplate
-from utils.FlowGenerator import generate_random_flows
+from utils.FlowGenerator import generate_random_flows,generate_switch_flow_list
 
 
 class Controller(ControllerTemplate):
@@ -101,14 +102,8 @@ class Controller(ControllerTemplate):
         Use self.flows
         :return:
         """
-        switch_flow_dict = {}
 
-        for flow_id, switches in self.flows.items():
-            for switch_id in switches:
-                switch_id = int(switch_id)
-                switch_flow_dict.setdefault(switch_id, set()).add(flow_id)
-
-        return {switch_id: list(flow_ids) for switch_id, flow_ids in switch_flow_dict.items()}
+        return generate_switch_flow_list(self.flows)
 
     def write_flows_to_file(self) -> None:
         with open('random_flows.bin', 'wb') as f:
@@ -285,9 +280,11 @@ class Controller(ControllerTemplate):
                 if count_stats:
                     match = parser.OFPMatch(
                         eth_type=ether_types.ETH_TYPE_IPV6,
+                        ip_proto=inet.IPPROTO_TCP,
                         ipv6_src=f"{first_switch_ip}/64",
                         ipv6_dst=f"{last_switch_ip}/64",
-                        ipv6_flabel=flow_id
+                        ipv6_flabel=flow_id,
+                        tcp_flags=(0x10, 0x13)
                     )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=priority)
                 else:
