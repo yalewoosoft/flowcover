@@ -200,7 +200,11 @@ def handle_signal_emulate_traffic(sig, frame):
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
         print('All flows sent. ')
-        pprint(parse_flow_iperf3_json(flows.keys()))
+        iperf3_stats = parse_flow_iperf3_json(flows.keys())
+        pprint(iperf3_stats)
+        filename = f"stats/iperf3_stats.json"
+        with open(filename, 'w') as f1:
+            json.dump(iperf3_stats, f1)
 
 def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
     """
