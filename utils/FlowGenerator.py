@@ -20,6 +20,7 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     flow_id = 1
     nodes = list(topology.nodes())
     all_paths = set()
+    attempt = 0
 
     # Validate
     max_flows = 0
@@ -47,7 +48,8 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
 
         return tuple(path)
 
-    while len(flows) < m:
+    max_attempts = 100
+    while len(flows) < m and attempt < max_attempts:
         start_node = choice(nodes)
         path = generate_path(start_node)
         if path not in all_paths and len(path) > 1:
@@ -55,6 +57,11 @@ def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
             flows[flow_id] = list(path)
             print(f'Flow {flow_id} generated.')
             flow_id += 1
+        else:
+            print('duplicate path, attempt to generate path again')
+            attempt+=1
+
+
 
     return flows
 
@@ -76,7 +83,7 @@ def generate_switch_flow_list(flows:dict[int, list[int]]) -> dict[int, [int]]:
         return {switch_id: list(flow_ids) for switch_id, flow_ids in switch_flow_dict.items()}
 
 if "__main__" == __name__:
-    topology = erdos_renyi_generator(200,0)
+    topology = erdos_renyi_generator(200,1)
     flows = generate_random_flows(200,topology)
     for flow_id, paths in flows.items():
         print(flow_id, paths)

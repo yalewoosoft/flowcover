@@ -66,6 +66,9 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
             chosen_switch = random.choice(flow_to_switch_ids[flow])
             picked_switch[chosen_switch] = picked_switch.get(chosen_switch, []) + [flow]
             uncovered_flows.remove(flow)
+            for affected_switch in flow_to_switch_ids[flow]:
+                if affected_switch in entry_finder:
+                    add_or_update_switch(affected_switch, s[affected_switch])
             print(f"Randomly picked switch {chosen_switch} for single flow {flow} due to high ratio in the pq {pq[0][0]}.")
             continue
 
@@ -91,14 +94,14 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
 
 
 if "__main__" == __name__:
-    f =[1,2,3,4,5,6,7,]
+    f =[1,2,3,4,5,6,7,8,9]
     s = {
         1:[1,2,3],
-        2:[1],
+        2:[1,2],
         3:[1,2,4,5],
         4:[2,5],
         5:[3,5,6],
         6:[3,4,6],
-        7:[2,4,7]
+        7:[2,4,7,8,9]
     }
     print(set_cover_solve(f,s))
