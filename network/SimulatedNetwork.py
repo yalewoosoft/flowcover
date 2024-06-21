@@ -1,6 +1,8 @@
+import json
 import subprocess
 import argparse
 import time
+from pprint import pprint
 
 import networkx as nx
 from ipmininet.cli import IPCLI
@@ -26,7 +28,7 @@ from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
 network: Optional[IPNet] = None
-NUM_PACKETS_PER_FLOW = 1000
+NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1M'
 IPERF3_INTERVAL = 0.1
 def port_id_generator():
@@ -132,7 +134,7 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
-    global NUM_PACKETS_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing iperf3')
     for i in network.keys():
@@ -170,7 +172,7 @@ def handle_signal_emulate_traffic(sig, frame):
         time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
         client_logs: dict[int, TextIO] = {}
-        print(f'Sending per flow {NUM_PACKETS_PER_FLOW} packets')
+        print(f'Sending per flow {NUM_BYTES_PER_FLOW} bytes')
         for flow_id, flow in flows.items():
 
             # prepare log file
@@ -183,11 +185,11 @@ def handle_signal_emulate_traffic(sig, frame):
             src_host: IPHost = network.get(f'h{src}')
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
-            if NUM_PACKETS_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-k', str(NUM_PACKETS_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
-                                       stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            if NUM_BYTES_PER_FLOW > 0:
+                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
@@ -198,6 +200,24 @@ def handle_signal_emulate_traffic(sig, frame):
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
         print('All flows sent. ')
+        pprint(parse_flow_iperf3_json(flows.keys()))
+
+def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
+    """
+    This function accpets a list of flow ids, parses the corresponding iperf3 log files, and output the number of bytes actually received for every flow.
+    Together with controller data this could be used to calculate flow statistics accuracy.
+    :param flow_ids: list of flow ids to count
+    :return: a dict: flow id -> number of bytes
+    """
+    flow_bytes: dict[int, int] = {}
+    for flow_id in flow_ids:
+        log_filename = f"logs/iperf3_{flow_id}.log"
+        with open(log_filename, 'r') as f:
+            data = json.load(f)
+            flow_bytes[flow_id] = data["end"]["sum_received"]["bytes"]
+    return flow_bytes
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
@@ -208,15 +228,15 @@ def main():
     parser.add_argument('--waxman-beta', default=0.5, type=float)
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
-    parser.add_argument('--num-packets-sent', default=1000, type=int)
+    parser.add_argument('--num-bytes-sent', default=1000, type=int)
     parser.add_argument('--bitrate', default='1M', type=str)
     parser.add_argument('--iperf3-interval', default=0.1, type=float)
 
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_PACKETS_PER_FLOW, BITRATE, IPERF3_INTERVAL
-    NUM_PACKETS_PER_FLOW = args.num_packets_sent
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    NUM_BYTES_PER_FLOW = args.num_bytes_sent
     BITRATE = args.bitrate
     IPERF3_INTERVAL = args.iperf3_interval
     network = IPNet(
