@@ -8,7 +8,7 @@ from math import factorial
 from pprint import pprint
 
 def permutation_number(n: int, k: int) -> int:
-    return int(factorial(n) / factorial(n-k))
+    return factorial(n) // factorial(n-k)
 def generate_random_flows(m: int, topology: nx.Graph) -> dict[int, list[int]]:
     """
     Generate random flows in a topology. Ensures no flow is the same and uses backtracking when no unvisited neighbors are available.
