@@ -26,7 +26,7 @@ from utils import HostIdIPConverter
 from utils.GraphGenerator import *
 
 network: Optional[IPNet] = None
-NUM_PACKETS_PER_FLOW = 1000
+NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1M'
 IPERF3_INTERVAL = 0.1
 def port_id_generator():
@@ -132,7 +132,7 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
-    global NUM_PACKETS_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing iperf3')
     for i in network.keys():
@@ -170,7 +170,7 @@ def handle_signal_emulate_traffic(sig, frame):
         time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
         client_logs: dict[int, TextIO] = {}
-        print(f'Sending per flow {NUM_PACKETS_PER_FLOW} packets')
+        print(f'Sending per flow {NUM_BYTES_PER_FLOW} packets')
         for flow_id, flow in flows.items():
 
             # prepare log file
@@ -183,9 +183,9 @@ def handle_signal_emulate_traffic(sig, frame):
             src_host: IPHost = network.get(f'h{src}')
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
-            if NUM_PACKETS_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-k', str(NUM_PACKETS_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
-                                       stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            if NUM_BYTES_PER_FLOW > 0:
+                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
                 src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
@@ -208,15 +208,15 @@ def main():
     parser.add_argument('--waxman-beta', default=0.5, type=float)
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
-    parser.add_argument('--num-packets-sent', default=1000, type=int)
+    parser.add_argument('--num-bytes-sent', default=1000, type=int)
     parser.add_argument('--bitrate', default='1M', type=str)
     parser.add_argument('--iperf3-interval', default=0.1, type=float)
 
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_PACKETS_PER_FLOW, BITRATE, IPERF3_INTERVAL
-    NUM_PACKETS_PER_FLOW = args.num_packets_sent
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    NUM_BYTES_PER_FLOW = args.num_bytes_sent
     BITRATE = args.bitrate
     IPERF3_INTERVAL = args.iperf3_interval
     network = IPNet(
