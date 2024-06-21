@@ -184,10 +184,10 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
-                src_popen = src_host.popen(['iperf3', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
