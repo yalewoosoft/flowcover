@@ -1,6 +1,8 @@
+import json
 import subprocess
 import argparse
 import time
+from pprint import pprint
 
 import networkx as nx
 from ipmininet.cli import IPCLI
@@ -170,7 +172,7 @@ def handle_signal_emulate_traffic(sig, frame):
         time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
         client_logs: dict[int, TextIO] = {}
-        print(f'Sending per flow {NUM_BYTES_PER_FLOW} packets')
+        print(f'Sending per flow {NUM_BYTES_PER_FLOW} bytes')
         for flow_id, flow in flows.items():
 
             # prepare log file
@@ -198,6 +200,24 @@ def handle_signal_emulate_traffic(sig, frame):
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
         print('All flows sent. ')
+        pprint(parse_flow_iperf3_json(flows.keys()))
+
+def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
+    """
+    This function accpets a list of flow ids, parses the corresponding iperf3 log files, and output the number of bytes actually received for every flow.
+    Together with controller data this could be used to calculate flow statistics accuracy.
+    :param flow_ids: list of flow ids to count
+    :return: a dict: flow id -> number of bytes
+    """
+    flow_bytes: dict[int, int] = {}
+    for flow_id in flow_ids:
+        log_filename = f"logs/iperf3_{flow_id}.log"
+        with open(log_filename, 'r') as f:
+            data = json.load(f)
+            flow_bytes[flow_id] = data["end"]["sum_received"]["bytes"]
+    return flow_bytes
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
