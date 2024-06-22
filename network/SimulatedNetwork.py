@@ -1,6 +1,7 @@
 import json
 import subprocess
 import argparse
+import sys
 import time
 from pprint import pprint
 
@@ -199,12 +200,14 @@ def handle_signal_emulate_traffic(sig, frame):
             print(f'Flow {flow_id} send complete')
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
-        print('All flows sent. ')
+        print('All flows sent. Mininet will quit in 5 seconds.')
         iperf3_stats = parse_flow_iperf3_json(flows.keys())
         pprint(iperf3_stats)
         filename = f"stats/iperf3_stats.json"
         with open(filename, 'w') as f1:
             json.dump(iperf3_stats, f1)
+        time.sleep(5)
+        sys.exit()
 
 def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
     """
