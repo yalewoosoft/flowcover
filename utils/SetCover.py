@@ -56,6 +56,7 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
         add_or_update_switch(switch_id, flows)
 
     while uncovered_flows:
+        to_updated_switch = set()
         if not pq:
             print("Priority queue is empty, no more switches to pick.")
             break
@@ -82,8 +83,9 @@ def set_cover_solve(f: [int], s: dict[int, [int]]) -> dict[int, [int]]:
             # Update priorities for all affected switches
             for flow in newly_covered_flows:
                 for affected_switch in flow_to_switch_ids[flow]:
-                    if affected_switch in entry_finder:
-                        add_or_update_switch(affected_switch, s[affected_switch])
+                    to_updated_switch.add(affected_switch)
+            for switch_id in to_updated_switch:
+                add_or_update_switch(switch_id,s[switch_id])
 
     if uncovered_flows:
         print("Not all flows could be covered with the available switches.")
