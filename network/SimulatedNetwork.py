@@ -32,6 +32,7 @@ network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1M'
 IPERF3_INTERVAL = 0.1
+IPERF3_TEST_TIMEOUT = 30
 def port_id_generator():
     current_id = 1
     while True:
@@ -168,7 +169,12 @@ def handle_signal_emulate_traffic(sig, frame):
             host_next_port[dst] += 1
             # start server on corresponding port
             dst_host: IPHost = network.get(f'h{dst}')
-            dst_popen = dst_host.popen(['iperf3', '-s', '-p', str(flow_port[flow_id])], cwd="/tmp/", stdout=subprocess.DEVNULL,
+            dst_popen = dst_host.popen(['iperf3',
+                                        '-s',
+                                        '-p', str(flow_port[flow_id]),
+                                        '--rcv-timeout', str(IPERF3_TEST_TIMEOUT*1000),
+                                        '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)],
+                                       cwd="/tmp/", stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL)
         time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
@@ -187,10 +193,27 @@ def handle_signal_emulate_traffic(sig, frame):
             dst_host: IPHost = network.get(f'h{dst}')
             dst_ip = HostIdIPConverter.id_to_ip(dst)
             if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-n', str(NUM_BYTES_PER_FLOW), '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3',
+                                            '--json',
+                                            '-c', dst_ip,
+                                            '-p', str(flow_port[flow_id]),
+                                            '-n', str(NUM_BYTES_PER_FLOW),
+                                            '-b', BITRATE,
+                                            f'-L0x{flow_id:x}',
+                                            '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)
+                                            ], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             else:
-                src_popen = src_host.popen(['iperf3', '--json', '-c', dst_ip, '-p', str(flow_port[flow_id]), '-t', '30', '-b', BITRATE, f'-L0x{flow_id:x}'], cwd="/tmp/",
+                src_popen = src_host.popen(['iperf3',
+                                            '--json',
+                                            '-c', dst_ip,
+                                            '-p', str(flow_port[flow_id]),
+                                            '-t', '30',
+                                            '-b', BITRATE,
+                                            f'-L0x{flow_id:x}',
+                                            '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)
+                                            ],
+                                           cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
@@ -238,14 +261,16 @@ def main():
     parser.add_argument('--num-bytes-sent', default=1000, type=int)
     parser.add_argument('--bitrate', default='1M', type=str)
     parser.add_argument('--iperf3-interval', default=0.1, type=float)
+    parser.add_argument('--iperf3-test-timeout', default=30, type=int)
 
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL, IPERF3_TEST_TIMEOUT
     NUM_BYTES_PER_FLOW = args.num_bytes_sent
     BITRATE = args.bitrate
     IPERF3_INTERVAL = args.iperf3_interval
+    IPERF3_TEST_TIMEOUT = args.iperf3_test_timeout
     network = IPNet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
