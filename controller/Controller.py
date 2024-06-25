@@ -194,7 +194,7 @@ class Controller(ControllerTemplate):
             # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
             # Save flow_stats to a JSON file with a timestamped filename
             timestamp = time.strftime("%Y%m%d-%H%M%S")
-            filename = f"stats/flow_stats_{timestamp}.json"
+            filename = f"stats/flow_stats.json"
 
             # Ensure the stats directory exists
             os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -277,11 +277,11 @@ class Controller(ControllerTemplate):
                 if count_stats:
                     match = parser.OFPMatch(
                         eth_type=ether_types.ETH_TYPE_IPV6,
-                        ip_proto=inet.IPPROTO_TCP,
+                        #ip_proto=inet.IPPROTO_TCP,
                         ipv6_src=f"{first_switch_ip}/64",
                         ipv6_dst=f"{last_switch_ip}/64",
                         ipv6_flabel=flow_id,
-                        tcp_flags=0x018
+                        #tcp_flags=(0x10, 0x13)
                     )
                     self.program_flow(cookie=flow_id, datapath=dp, match=match, actions=actions, priority=priority)
                 else:
