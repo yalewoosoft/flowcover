@@ -7,6 +7,7 @@ killall python3
 killall python3.9
 rm stats/*
 rm logs/*
+rm /tmp/trafgen*
 screen -XS mininet quit
 screen -XS controller quit
 mn -c
