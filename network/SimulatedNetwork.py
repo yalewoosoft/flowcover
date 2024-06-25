@@ -30,9 +30,7 @@ from utils.GraphGenerator import *
 
 network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 1000
-BITRATE = '1M'
-IPERF3_INTERVAL = 0.1
-IPERF3_TEST_TIMEOUT = 30
+BITRATE = '1MB'
 def port_id_generator():
     current_id = 1
     while True:
@@ -138,52 +136,25 @@ def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
     global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
     print('Signal USR1 received, start sending traffic')
-    print('Killing all existing iperf3')
+    print('Killing all existing trafgen')
     for i in network.keys():
         if i.startswith('h'):
             host: IPHost = network.get(i)
-            host.popen(['killall', 'iperf3'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            host.popen(['killall', 'trafgen'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print('Starting iperf3')
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
-        '''
-        flow_dst = set(map(lambda flow: flow[-1], flows.values()))
-        print('All destinations to start server:', flow_dst)
-        # setup all servers
-        for dst in flow_dst:
-            dst_host: IPHost = network.get(f'h{dst}')
-            dst_popen = dst_host.popen(['iperf3', '-s'], cwd="/tmp/", stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL)
-        time.sleep(1)
-        '''
-        # assign a port for every flow
-        flow_port: dict[int, int] = {}
-        flow_dst = set(map(lambda flow: flow[-1], flows.values()))
-        host_next_port: dict[int, int] = {}
-        for dst in flow_dst:
-            host_next_port[dst] = 1
-        for flow_id, flow in flows.items():
-            dst = flow[-1]
-            flow_port[flow_id] = host_next_port[dst]
-            host_next_port[dst] += 1
-            # start server on corresponding port
-            dst_host: IPHost = network.get(f'h{dst}')
-            dst_popen = dst_host.popen(['iperf3',
-                                        '-s',
-                                        '-p', str(flow_port[flow_id]),
-                                        '--rcv-timeout', str(IPERF3_TEST_TIMEOUT*1000),
-                                        '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)],
-                                       cwd="/tmp/", stdout=subprocess.DEVNULL,
-                                       stderr=subprocess.DEVNULL)
-        time.sleep(1)
+        # prepare trafgen template
+        with open('utils/trafgen.conf', 'r') as f:
+            trafgen_conf_template = f.read()
         client_processes: dict[int, subprocess.Popen] = {}
         client_logs: dict[int, TextIO] = {}
         print(f'Sending per flow {NUM_BYTES_PER_FLOW} bytes')
         for flow_id, flow in flows.items():
 
             # prepare log file
-            log_filename = f"logs/iperf3_{flow_id}.log"
+            log_filename = f"logs/trafgen_{flow_id}.log"
             os.makedirs(os.path.dirname(log_filename), exist_ok=True)
             client_logs[flow_id] = open(log_filename, 'w')
 
@@ -191,7 +162,16 @@ def handle_signal_emulate_traffic(sig, frame):
             dst = flow[-1]
             src_host: IPHost = network.get(f'h{src}')
             dst_host: IPHost = network.get(f'h{dst}')
+            src_ip = HostIdIPConverter.id_to_ip(src)
             dst_ip = HostIdIPConverter.id_to_ip(dst)
+            trafgen_conf = trafgen_conf_template.format(
+                eth_dst=HostIdIPConverter.id_to_mac(dst),
+                flow_id=flow_id,
+                ipv6_src=src_ip,
+                ipv6_dst=dst_ip,
+            )
+            print(trafgen_conf)
+            '''
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['iperf3',
                                             '--json',
@@ -217,6 +197,23 @@ def handle_signal_emulate_traffic(sig, frame):
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
             time.sleep(IPERF3_INTERVAL)
+            '''
+            if NUM_BYTES_PER_FLOW > 0:
+                src_popen = src_host.popen(['trafgen',
+                                            '--dev',f'h{src}-eth0',
+                                            '-b', BITRATE,
+                                            '-n', str(NUM_BYTES_PER_FLOW // 100),
+                                            f' \'{{ {trafgen_conf} }}\''
+                                            ], cwd="/tmp/",
+                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            else:
+                src_popen = src_host.popen(['trafgen',
+                                            '--dev', f'h{src}-eth0',
+                                            '-b', BITRATE,
+                                            f' \'{{ {trafgen_conf} }}\''
+                                            ], cwd="/tmp/",
+                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            client_processes[flow_id] = src_popen
         # wait for all iperf3s to finish
         for flow_id, p in client_processes.items():
             p.wait()
@@ -224,13 +221,15 @@ def handle_signal_emulate_traffic(sig, frame):
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
         print('All flows sent. Mininet will quit in 5 seconds.')
+        '''
         iperf3_stats = parse_flow_iperf3_json(flows.keys())
         pprint(iperf3_stats)
         filename = f"stats/iperf3_stats.json"
         with open(filename, 'w') as f1:
             json.dump(iperf3_stats, f1)
-        time.sleep(5)
-        sys.exit()
+        '''
+        #time.sleep(5)
+        #sys.exit()
 
 def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
     """
@@ -259,18 +258,14 @@ def main():
     parser.add_argument('--loss-switch-ratio', default=0, type=float)
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
     parser.add_argument('--num-bytes-sent', default=1000, type=int)
-    parser.add_argument('--bitrate', default='1M', type=str)
-    parser.add_argument('--iperf3-interval', default=0.1, type=float)
-    parser.add_argument('--iperf3-test-timeout', default=30, type=int)
+    parser.add_argument('--bitrate', default='1MB', type=str)
 
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL, IPERF3_TEST_TIMEOUT
+    global NUM_BYTES_PER_FLOW, BITRATE
     NUM_BYTES_PER_FLOW = args.num_bytes_sent
     BITRATE = args.bitrate
-    IPERF3_INTERVAL = args.iperf3_interval
-    IPERF3_TEST_TIMEOUT = args.iperf3_test_timeout
     network = IPNet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
