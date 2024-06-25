@@ -134,14 +134,15 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
-    global NUM_BYTES_PER_FLOW, BITRATE, IPERF3_INTERVAL
+    global NUM_BYTES_PER_FLOW, BITRATE, trafgen_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing trafgen')
     for i in network.keys():
         if i.startswith('h'):
             host: IPHost = network.get(i)
             host.popen(['killall', 'trafgen'], cwd="/tmp/", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print('Starting iperf3')
+            break
+    print('Starting trafgen')
     # read random flows from file
     with open('random_flows.bin', 'rb') as f:
         flows: dict[int, [int]] = pickle.load(f)
@@ -215,7 +216,7 @@ def handle_signal_emulate_traffic(sig, frame):
                                             ], cwd="/tmp/",
                                            stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
             client_processes[flow_id] = src_popen
-        # wait for all iperf3s to finish
+        # wait for all trafgens to finish
         for flow_id, p in client_processes.items():
             p.wait()
             print(f'Flow {flow_id} send complete')
@@ -225,29 +226,26 @@ def handle_signal_emulate_traffic(sig, frame):
             p.send_signal(signal.SIGTERM)
             p.wait()
         print('All flows sent. Mininet will quit in 5 seconds.')
-        '''
-        iperf3_stats = parse_flow_iperf3_json(flows.keys())
-        pprint(iperf3_stats)
-        filename = f"stats/iperf3_stats.json"
+        trafgen_stats = parse_flow_trafgen(flows.keys())
+        pprint(trafgen_stats)
+        filename = f"stats/trafgen_stats.json"
         with open(filename, 'w') as f1:
-            json.dump(iperf3_stats, f1)
-        '''
-        #time.sleep(5)
-        #sys.exit()
+            json.dump(trafgen_stats, f1)
+        time.sleep(5)
+        sys.exit()
 
-def parse_flow_iperf3_json(flow_ids: [int]) -> dict[int, int]:
+def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     """
-    This function accpets a list of flow ids, parses the corresponding iperf3 log files, and output the number of bytes actually received for every flow.
+    This function accepts a list of flow ids, parses the corresponding trafgen log files, and output the number of bytes actually received for every flow.
     Together with controller data this could be used to calculate flow statistics accuracy.
     :param flow_ids: list of flow ids to count
     :return: a dict: flow id -> number of bytes
     """
     flow_bytes: dict[int, int] = {}
     for flow_id in flow_ids:
-        log_filename = f"logs/iperf3_{flow_id}.log"
+        log_filename = f"/tmp/trafgen_{flow_id}.log"
         with open(log_filename, 'r') as f:
-            data = json.load(f)
-            flow_bytes[flow_id] = data["end"]["sum_received"]["bytes"]
+            flow_bytes[flow_id] = int(f.read())
     return flow_bytes
 
 
