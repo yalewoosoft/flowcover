@@ -148,6 +148,33 @@ def handle_signal_emulate_traffic(sig, frame):
         # prepare trafgen template
         with open('utils/trafgen.conf', 'r') as f:
             trafgen_conf_template = f.read()
+            # assign a port for every flow
+        flow_port: dict[int, int] = {}
+        flow_dst = set(map(lambda flow: flow[-1], flows.values()))
+        host_next_port: dict[int, int] = {}
+        server_processes: dict[int, subprocess.Popen] = {}
+        server_logs: dict[int, TextIO] = {}
+        for dst in flow_dst:
+            host_next_port[dst] = 1
+        for flow_id, flow in flows.items():
+            dst = flow[-1]
+            flow_port[flow_id] = host_next_port[dst]
+            host_next_port[dst] += 1
+            # start server on corresponding port
+            # prepare log file
+            log_filename = f"logs/server_{flow_id}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            server_logs[flow_id] = open(log_filename, 'w')
+            dst_host: IPHost = network.get(f'h{dst}')
+            dst_popen = dst_host.popen(['python3',
+                                        'network/UDPServer.py',
+                                        str(flow_id),
+                                        str(flow_port[flow_id])
+                                        ],
+                                       cwd=".", stdout=server_logs[flow_id],
+                                       stderr=subprocess.STDOUT)
+            server_processes[flow_id] = dst_popen
+            time.sleep(1)
         client_processes: dict[int, subprocess.Popen] = {}
         client_logs: dict[int, TextIO] = {}
         print(f'Sending per flow {NUM_BYTES_PER_FLOW} bytes')
@@ -169,35 +196,8 @@ def handle_signal_emulate_traffic(sig, frame):
                 flow_id=flow_id,
                 ipv6_src=src_ip,
                 ipv6_dst=dst_ip,
+                port=flow_port[flow_id],
             )
-            print(trafgen_conf)
-            '''
-            if NUM_BYTES_PER_FLOW > 0:
-                src_popen = src_host.popen(['iperf3',
-                                            '--json',
-                                            '-c', dst_ip,
-                                            '-p', str(flow_port[flow_id]),
-                                            '-n', str(NUM_BYTES_PER_FLOW),
-                                            '-b', BITRATE,
-                                            f'-L0x{flow_id:x}',
-                                            '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)
-                                            ], cwd="/tmp/",
-                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
-            else:
-                src_popen = src_host.popen(['iperf3',
-                                            '--json',
-                                            '-c', dst_ip,
-                                            '-p', str(flow_port[flow_id]),
-                                            '-t', '30',
-                                            '-b', BITRATE,
-                                            f'-L0x{flow_id:x}',
-                                            '--snd-timeout', str(IPERF3_TEST_TIMEOUT*1000)
-                                            ],
-                                           cwd="/tmp/",
-                                           stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
-            client_processes[flow_id] = src_popen
-            time.sleep(IPERF3_INTERVAL)
-            '''
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['trafgen',
                                             '--dev',f'h{src}-eth0',
@@ -220,6 +220,9 @@ def handle_signal_emulate_traffic(sig, frame):
             print(f'Flow {flow_id} send complete')
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
+        for flow_id, p in server_processes.items():
+            p.send_signal(signal.SIGTERM)
+            p.wait()
         print('All flows sent. Mininet will quit in 5 seconds.')
         '''
         iperf3_stats = parse_flow_iperf3_json(flows.keys())
