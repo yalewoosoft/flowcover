@@ -48,6 +48,7 @@ class Controller(ControllerTemplate):
     online_switches: dict[int, Datapath] # switch id -> switch object
     random_type: str
     pid_of_mininet: int
+    unchanged_count:int
 
     def __init__(self, *args, **kwargs):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
@@ -70,6 +71,7 @@ class Controller(ControllerTemplate):
         print('SetCover calculation finished, solution:')
         self.flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
+        self.unchanged_count = 0
 
     def read_pid_of_mininet(self) -> None:
         with open('pid.txt', 'r') as f:
@@ -158,17 +160,28 @@ class Controller(ControllerTemplate):
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev) -> None:
+        print("count is",self.unchanged_count)
         """
         TODO: Callback of received statistics. Record the data from individual flow.
         Write results to self.flow_stats.
         """
+        prev_flow_stats = deepcopy(self.flow_stats)
         body = ev.msg.body
-
         #pprint(body)
         for stat in body:
             flow_id = stat.cookie
             self.flow_stats[flow_id] = stat.byte_count
+
+        if any(v > 0 for v in self.flow_stats.values()) and prev_flow_stats == self.flow_stats:
+            self.unchanged_count += 1
+        else:
+            self.unchanged_count = 0
+
+        if self.unchanged_count >= 20:
+            print("Controller exit")
+            os._exit(0)
         pprint(self.flow_stats)
+
 
 
     @set_ev_cls(ofp_event.EventOFPStateChange,

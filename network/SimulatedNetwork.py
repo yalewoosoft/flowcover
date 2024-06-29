@@ -282,6 +282,7 @@ def main():
         switch=OVSSwitch,
         controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6653, protocols="OpenFlow13")
     )
+
     #controller = RemoteController('c1', ip='127.0.0.1', port=6633, protocols="OpenFlow13")
     network.staticArp()
     #network.addController(controller)
@@ -289,6 +290,9 @@ def main():
         # write mininet pid to file; Ryu uses this to notify mininet to start sending traffic
         f.write(str(os.getpid()))
     network.start()
+    with open(f'/tmp/mininet_started.flag', 'w', encoding='utf-8') as f:
+        f.write('0')
+    print('mininet started')
     return network
 
 if __name__ == '__main__':
