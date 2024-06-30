@@ -31,6 +31,7 @@ from utils.GraphGenerator import *
 network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1MB'
+trafgen_flag = False
 exit_flag = False
 def port_id_generator():
     current_id = 1
@@ -135,6 +136,11 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
+    global trafgen_flag
+    if trafgen_flag:
+        print('Trafgen already started; not starting again')
+        return
+    trafgen_flag = True
     global NUM_BYTES_PER_FLOW, BITRATE, trafgen_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing trafgen')

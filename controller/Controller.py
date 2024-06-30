@@ -318,7 +318,7 @@ class Controller(ControllerTemplate):
         parser = dp.ofproto_parser
         current_switch_id = ev.msg.datapath.id
         print(current_switch_id)
-        self.remove_flows(ev.msg.datapath, 0)
+        #self.remove_flows(ev.msg.datapath, 0)
 
 
         # Forward NDP to controller
