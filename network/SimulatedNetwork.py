@@ -149,7 +149,9 @@ def handle_signal_emulate_traffic(sig, frame):
         # prepare trafgen template
         with open('utils/trafgen.conf', 'r') as f:
             trafgen_conf_template = f.read()
-            # assign a port for every flow
+        with open('utils/trafgen_close_server.conf', 'r') as f:
+            trafgen_close_template = f.read()
+        # assign a port for every flow
         flow_port: dict[int, int] = {}
         flow_dst = set(map(lambda flow: flow[-1], flows.values()))
         host_next_port: dict[int, int] = {}
@@ -222,17 +224,44 @@ def handle_signal_emulate_traffic(sig, frame):
             print(f'Flow {flow_id} send complete')
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
-        for flow_id, p in server_processes.items():
-            p.send_signal(signal.SIGTERM)
+        print('All flows sent. Sending close packet.')
+        for flow_id, flow in flows.items():
+
+            # prepare log file
+            log_filename = f"logs/trafgen_close_{flow_id}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            client_logs[flow_id] = open(log_filename, 'w')
+
+            src = flow[0]
+            dst = flow[-1]
+            src_host: IPHost = network.get(f'h{src}')
+            dst_host: IPHost = network.get(f'h{dst}')
+            src_ip = HostIdIPConverter.id_to_ip(src)
+            dst_ip = HostIdIPConverter.id_to_ip(dst)
+            trafgen_conf = trafgen_close_template.format(
+                eth_dst=HostIdIPConverter.id_to_mac(dst),
+                ipv6_src=src_ip,
+                ipv6_dst=dst_ip,
+                port=flow_port[flow_id],
+            )
+            src_popen = src_host.popen(['trafgen',
+                                        '--dev',f'h{src}-eth0',
+                                        '-b', BITRATE,
+                                        '-n', str(NUM_BYTES_PER_FLOW // 100),
+                                        f' \'{{ {trafgen_conf} }}\''
+                                        ], cwd="/tmp/",
+                                       stdout=client_logs[flow_id], stderr=subprocess.STDOUT)
+            client_processes[flow_id] = src_popen
+        for flow_id, p in client_processes.items():
             p.wait()
-        print('All flows sent. Mininet will quit in 5 seconds.')
+            print(f'Flow {flow_id} close send complete')
+            client_logs[flow_id].flush()
+            client_logs[flow_id].close()
         trafgen_stats = parse_flow_trafgen(flows.keys())
         pprint(trafgen_stats)
         filename = f"stats/trafgen_stats.json"
         with open(filename, 'w') as f1:
             json.dump(trafgen_stats, f1)
-        time.sleep(5)
-        sys.exit()
 
 def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     """
@@ -244,11 +273,18 @@ def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     flow_bytes: dict[int, int] = {}
     for flow_id in flow_ids:
         log_filename = f"/tmp/trafgen_{flow_id}.log"
-        with open(log_filename, 'r') as f:
-            flow_bytes[flow_id] = int(f.read())
+        done = False
+        while not done:
+            if os.path.exists(log_filename):
+                with open(log_filename, 'r') as f:
+                    flow_bytes[flow_id] = int(f.read())
+                done = True
+            time.sleep(0.2)
+
     return flow_bytes
 
-
+def handle_signal_exit(sig, frame):
+    sys.exit(0)
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
@@ -297,6 +333,7 @@ def main():
 
 if __name__ == '__main__':
     signal.signal(signal.SIGUSR1, handle_signal_emulate_traffic)
+    signal.signal(signal.SIGUSR2, handle_signal_exit)
     net = main()
     IPCLI(net)
     net.stop()
