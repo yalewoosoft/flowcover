@@ -195,6 +195,8 @@ class Controller(ControllerTemplate):
         while True:
             for dp in self.online_switches.values():
                 self.request_stats(dp)
+            # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
+            # Save flow_stats to a JSON file with a timestamped filename
             timestamp = time.strftime("%Y%m%d-%H%M%S")
             filename = f"stats/flow_stats.json"
 
