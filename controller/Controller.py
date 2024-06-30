@@ -211,7 +211,16 @@ class Controller(ControllerTemplate):
                 self.unchanged_count = 0
             print(f'Flows stats unchanged for {self.unchanged_count} times.')
             if self.unchanged_count >= 10:
-                print("Flow stats stable (10 count). Controller & Mininet exit.")
+                print("Flow stats stable (10 count). Waiting for server to quit.")
+                server_quited: dict[int, bool] = {}
+                for flow_id in self.flows.keys():
+                    server_quited[flow_id] = False
+                while not all(server_quited.values()):
+                    for flow_id in self.flows.keys():
+                        filename = f'/tmp/trafgen_{flow_id}.log'
+                        if os.path.exists(filename):
+                            server_quited[flow_id] = True
+                print("All server exited. Exiting controller and mininet.")
                 os.kill(self.pid_of_mininet, signal.SIGUSR2)
                 os._exit(0)
             self.prev_flow_stats = deepcopy(self.flow_stats)
