@@ -40,4 +40,5 @@ for packet_loss_ratio in 0 0.02 0.04 0.06 0.08 0.1; do
   mv stats/flow_stats.json stats/flow_stats_$packet_loss_ratio.json
   killall python3
   killall python3.9
+  rm /tmp/trafgen*
 done

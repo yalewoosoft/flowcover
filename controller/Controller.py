@@ -214,7 +214,7 @@ class Controller(ControllerTemplate):
                 os.kill(self.pid_of_mininet, signal.SIGUSR2)
                 os._exit(0)
             self.prev_flow_stats = deepcopy(self.flow_stats)
-            hub.sleep(10)
+            hub.sleep(3)
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
