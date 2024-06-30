@@ -44,6 +44,7 @@ class Controller(ControllerTemplate):
     switch_flows: dict[int, [int]] # switch id -> list of flow ids that pass though it
     polling: dict[int, [int]] # switch id -> flows to poll statistics, [] if not polled
     flow_stats: dict[int, int] # flow id -> number of packets
+    prev_flow_stats: dict[int, int]  # flow id -> number of packets
     switch_configured: dict[int, bool] # switch id -> bool
     online_switches: dict[int, Datapath] # switch id -> switch object
     random_type: str
@@ -70,6 +71,7 @@ class Controller(ControllerTemplate):
         self.polling = self.set_cover()
         print('SetCover calculation finished, solution:')
         self.flow_stats = {}
+        self.prev_flow_stats = {}
         self.monitor_thread = hub.spawn(self._monitor)
         self.unchanged_count = 0
 
@@ -150,37 +152,26 @@ class Controller(ControllerTemplate):
             if datapath_id ==switch_id:
                 for flow_id in flows:
                     cookie = flow_id  # Assuming flow_id can be directly used as a cookie
-                    # cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
+                    cookie_mask = 0xFFFFFFFFFFFFFFFF  # Mask to match the exact cookie
                     req = OFPFlowStatsRequest(datapath, 0, ofproto.OFPTT_ALL,
                                                   ofproto.OFPP_ANY, ofproto.OFPG_ANY,
-                                                  cookie)
+                                                  cookie, cookie_mask)
                     datapath.send_msg(req)
 
 
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev) -> None:
-        print("count is",self.unchanged_count)
+        #print("count is",self.unchanged_count)
         """
         TODO: Callback of received statistics. Record the data from individual flow.
         Write results to self.flow_stats.
         """
-        prev_flow_stats = deepcopy(self.flow_stats)
         body = ev.msg.body
         #pprint(body)
         for stat in body:
             flow_id = stat.cookie
             self.flow_stats[flow_id] = stat.byte_count
-
-        if any(v > 0 for v in self.flow_stats.values()) and prev_flow_stats == self.flow_stats:
-            self.unchanged_count += 1
-        else:
-            self.unchanged_count = 0
-
-        if self.unchanged_count >= 20:
-            print("Controller exit")
-            os._exit(0)
-        pprint(self.flow_stats)
 
 
 
@@ -212,6 +203,17 @@ class Controller(ControllerTemplate):
 
             with open(filename, 'w') as f:
                 json.dump(self.flow_stats, f, indent=4)
+            pprint(self.flow_stats)
+            if any(v > 0 for v in self.flow_stats.values()) and self.prev_flow_stats == self.flow_stats:
+                self.unchanged_count += 1
+            else:
+                self.unchanged_count = 0
+            print(f'Flows stats unchanged for {self.unchanged_count} times.')
+            if self.unchanged_count >= 10:
+                print("Flow stats stable (10 count). Controller & Mininet exit.")
+                os.kill(self.pid_of_mininet, signal.SIGUSR2)
+                os._exit(0)
+            self.prev_flow_stats = deepcopy(self.flow_stats)
             hub.sleep(10)
 
 
@@ -343,13 +345,6 @@ class Controller(ControllerTemplate):
             self.program_single_flow(dp, current_switch_id, flow_id, 3, reverse=False, count_stats=True)
 
         self.switch_configured[current_switch_id] = True
-        print('-----------------------------------------------')
-        self.logger.debug('OFPSwitchFeatures received: '
-                          'datapath_id=0x%016x n_buffers=%d '
-                          'n_tables=%d auxiliary_id=%d '
-                          'capabilities=0x%08x',
-                          ev.msg.datapath_id, ev.msg.n_buffers, ev.msg.n_tables,
-                          ev.msg.auxiliary_id, ev.msg.capabilities)
         if all(self.switch_configured.values()):
             print('All switches setup complete; sending signal to notify mininet')
             # if all switch configured: notify mininet to start generating traffic
