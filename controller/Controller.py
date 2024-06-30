@@ -190,6 +190,7 @@ class Controller(ControllerTemplate):
             if datapath.id in self.online_switches:
                 self.logger.debug('unregister switch: %x', datapath.id)
                 del self.online_switches[datapath.id]
+                self.switch_configured[datapath.id] = False
 
     def _monitor(self):
         while True:
@@ -345,6 +346,9 @@ class Controller(ControllerTemplate):
             self.program_single_flow(dp, current_switch_id, flow_id, 3, reverse=False, count_stats=True)
 
         self.switch_configured[current_switch_id] = True
+        # Count how many switches are set up
+        num_switches_done = len({k: v for k, v in self.switch_configured.items() if v == True})
+        print(f'A total of {num_switches_done} switches were configured.')
         if all(self.switch_configured.values()):
             print('All switches setup complete; sending signal to notify mininet')
             # if all switch configured: notify mininet to start generating traffic
