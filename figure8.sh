@@ -15,7 +15,7 @@ mn -c
 for packet_loss_ratio in 0 0.02 0.04 0.06 0.08 0.1 0.12 0.14 0.16 0.18 0.2; do
   rm /tmp/mininet_started.flag
   echo Starting emulation with loss ratio $packet_loss_ratio...
-  screen -dmS mininet -L -Logfile logs/screen_mininet_$packet_loss_ratio.log python3 -m network.SimulatedNetwork --num-switches=$num_switches --random-type=erdos-renyi --erdos-renyi-prob=0.2 --loss-switch-ratio=$loss_switch_ratio --packet-loss-ratio=$packet_loss_ratio --num-bytes-sent=100000 --bitrate=1MB --timeout=900
+  screen -dmS mininet -L -Logfile logs/screen_mininet_$packet_loss_ratio.log python3 -m network.SimulatedNetwork --num-switches=$num_switches --random-type=erdos-renyi --erdos-renyi-prob=0.2 --loss-switch-ratio=$loss_switch_ratio --packet-loss-ratio=$packet_loss_ratio --num-bytes-sent=100000 --bitrate=100MB
   echo Waiting for Mininet to start...
   while [ ! -f /tmp/mininet_started.flag ]; do
     sleep 1
