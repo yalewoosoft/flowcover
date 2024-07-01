@@ -37,6 +37,7 @@ from utils.FlowGenerator import generate_random_flows,generate_switch_flow_list
 
 
 class Controller(ControllerTemplate):
+    timeout: int
     topology: nx.Graph
     switch_switch_port: dict[(int, int), int] # (switch id from, to) -> port id
     switch_host_port: dict[(int, int), int] # (switch id, host id) -> port id
@@ -55,6 +56,7 @@ class Controller(ControllerTemplate):
         super(ControllerTemplate, self).__init__(*args, **kwargs)
         self.info('Controller started')
         num_flows = cfg.CONF['flowcover']['num_flows']
+        self.timeout = cfg.CONF['flowcover']['timeout']
         self.read_pid_of_mininet()
         print('Finished Reading PID of mininet')
         self.online_switches = {}
@@ -212,10 +214,17 @@ class Controller(ControllerTemplate):
             print(f'Flows stats unchanged for {self.unchanged_count} times.')
             if self.unchanged_count >= 10:
                 print("Flow stats stable (10 count). Waiting for server to quit.")
+                wait_time_start = timer()
                 server_quited: dict[int, bool] = {}
                 for flow_id in self.flows.keys():
                     server_quited[flow_id] = False
                 while not all(server_quited.values()):
+                    time.sleep(1)
+                    time_now = timer()
+                    wait_time = wait_time_start - time_now
+                    if wait_time >= self.timeout:
+                        print(f'Server exit timed out. Force exiting. All remaining flows will be set to zero.')
+                        break
                     for flow_id in self.flows.keys():
                         filename = f'/tmp/trafgen_{flow_id}.log'
                         if os.path.exists(filename):
@@ -368,10 +377,11 @@ class Controller(ControllerTemplate):
 
 def main():
     # Register a new CLI parameter for Ryu; no docs available; see Stackoverflow #25601133
-    # CLI param: --flowcover-num-flows
+    # CLI param: --flowcover-num-flows --flowcover-timeout
     cfg.CONF.register_cli_opts(
         [
-            cfg.IntOpt('num-flows', default=10)
+            cfg.IntOpt('num-flows', default=10),
+            cfg.IntOpt('timeout', default=900)
         ]
     , 'flowcover')
     sys.argv.append('controller.Controller')
