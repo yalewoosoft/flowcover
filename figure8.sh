@@ -1,7 +1,7 @@
 #!/bin/bash
 
-num_switches=20
-num_flows=10
+num_switches=40
+num_flows=2000
 loss_switch_ratio=0.1
 killall python3
 killall python3.9
@@ -12,16 +12,16 @@ screen -XS mininet quit
 screen -XS controller quit
 mn -c
 
-for packet_loss_ratio in 0 0.02 0.04 0.06 0.08 0.1; do
+for packet_loss_ratio in 0 0.02 0.04 0.06 0.08 0.1 0.12 0.14 0.16 0.18 0.2; do
   rm /tmp/mininet_started.flag
   echo Starting emulation with loss ratio $packet_loss_ratio...
-  screen -dmS mininet -L -Logfile logs/screen_mininet_$packet_loss_ratio.log python3 -m network.SimulatedNetwork --num-switches=$num_switches --random-type=erdos-renyi --erdos-renyi-prob=0.5 --loss-switch-ratio=$loss_switch_ratio --packet-loss-ratio=$packet_loss_ratio --num-bytes-sent=100000 --bitrate=100MB
+  screen -dmS mininet -L -Logfile logs/screen_mininet_$packet_loss_ratio.log python3 -m network.SimulatedNetwork --num-switches=$num_switches --random-type=erdos-renyi --erdos-renyi-prob=0.2 --loss-switch-ratio=$loss_switch_ratio --packet-loss-ratio=$packet_loss_ratio --num-bytes-sent=100000 --bitrate=1MB
   echo Waiting for Mininet to start...
   while [ ! -f /tmp/mininet_started.flag ]; do
     sleep 1
   done
   echo Mininet started.
-  screen -dmS controller -L -Logfile logs/screen_controller_$packet_loss_ratio.log python3 -m controller.Controller --flowcover-num-flows=$num_flows
+  screen -dmS controller -L -Logfile logs/screen_controller_$packet_loss_ratio.log python3 -m controller.Controller --flowcover-num-flows=$num_flows --flowcover-timeout=900
   echo Waiting for mininet to quit...
   while screen -list | grep -q mininet
   do

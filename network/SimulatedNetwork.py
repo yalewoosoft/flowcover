@@ -31,7 +31,7 @@ from utils.GraphGenerator import *
 network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1MB'
-exit_flag = False
+trafgen_flag = False
 def port_id_generator():
     current_id = 1
     while True:
@@ -135,6 +135,11 @@ class SimulatedNetworkTopology(IPTopo):
 
 def handle_signal_emulate_traffic(sig, frame):
     assert network is not None
+    global trafgen_flag
+    if trafgen_flag:
+        print('Trafgen already started; not starting again')
+        return
+    trafgen_flag = True
     global NUM_BYTES_PER_FLOW, BITRATE, trafgen_INTERVAL
     print('Signal USR1 received, start sending traffic')
     print('Killing all existing trafgen')
@@ -202,7 +207,7 @@ def handle_signal_emulate_traffic(sig, frame):
                 ipv6_dst=dst_ip,
                 port=flow_port[flow_id],
             )
-            print(trafgen_conf)
+            #print(trafgen_conf)
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['trafgen',
                                             '--dev',f'h{src}-eth0',
@@ -258,18 +263,6 @@ def handle_signal_emulate_traffic(sig, frame):
             print(f'Flow {flow_id} close send complete')
             client_logs[flow_id].flush()
             client_logs[flow_id].close()
-        trafgen_stats = parse_flow_trafgen(flows.keys())
-        pprint(trafgen_stats)
-        filename = f"stats/trafgen_stats.json"
-        print('Saving stats')
-        with open(filename, 'w') as f1:
-            json.dump(trafgen_stats, f1)
-        print('Stats saved.')
-        global exit_flag
-        while not exit_flag:
-            time.sleep(1)
-        print('Exit flag set. Mininet will exit.')
-        sys.exit(0)
 
 def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     """
@@ -281,20 +274,26 @@ def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     flow_bytes: dict[int, int] = {}
     for flow_id in flow_ids:
         log_filename = f"/tmp/trafgen_{flow_id}.log"
-        done = False
-        while not done:
-            if os.path.exists(log_filename):
-                with open(log_filename, 'r') as f:
-                    flow_bytes[flow_id] = int(f.read())
-                done = True
-            time.sleep(0.2)
+        if os.path.exists(log_filename):
+            with open(log_filename, 'r') as f:
+                flow_bytes[flow_id] = int(f.read())
+        else:
+            flow_bytes[flow_id] = 0
 
     return flow_bytes
 
 def handle_signal_exit(sig, frame):
     print('Receiving signal from controller. Will exit after stats saved.')
-    global exit_flag
-    exit_flag = True
+    with open('random_flows.bin', 'rb') as f:
+        flows: dict[int, [int]] = pickle.load(f)
+        trafgen_stats = parse_flow_trafgen(flows.keys())
+        pprint(trafgen_stats)
+        filename = f"stats/trafgen_stats.json"
+        print('Saving stats')
+        with open(filename, 'w') as f1:
+            json.dump(trafgen_stats, f1)
+        print('Stats saved. Mininet will exit.')
+        sys.exit(0)
 
 def main():
     parser = argparse.ArgumentParser(description='Simulated Mininet network')
