@@ -12,6 +12,7 @@ from mininet.topo import Topo
 from ipmininet.iptopo import IPTopo
 from itertools import product
 from random import random
+from timeit import default_timer as timer
 import ipmininet.clean as ipm_clean
 import mininet.clean as m_clean
 from ipmininet.ipnet import IPNet
@@ -32,6 +33,7 @@ network: Optional[IPNet] = None
 NUM_BYTES_PER_FLOW = 1000
 BITRATE = '1MB'
 trafgen_flag = False
+exit_timeout = 1800 # in seconds
 def port_id_generator():
     current_id = 1
     while True:
@@ -271,6 +273,8 @@ def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     :param flow_ids: list of flow ids to count
     :return: a dict: flow id -> number of bytes
     """
+    global exit_timeout
+    wait_time_start = timer()
     flow_bytes: dict[int, int] = {}
     for flow_id in flow_ids:
         log_filename = f"/tmp/trafgen_{flow_id}.log"
@@ -281,6 +285,11 @@ def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
                     flow_bytes[flow_id] = int(f.read())
                 done = True
             time.sleep(0.2)
+            time_now = timer()
+            wait_time = wait_time_start - time_now
+            if wait_time >= exit_timeout:
+                print(f'Server exit timed out. Setting traffic of flow {flow_id} to zero.')
+                flow_bytes[flow_id] = 0
 
     return flow_bytes
 
@@ -308,13 +317,15 @@ def main():
     parser.add_argument('--packet-loss-ratio', default=0, type=float)
     parser.add_argument('--num-bytes-sent', default=1000, type=int)
     parser.add_argument('--bitrate', default='1MB', type=str)
+    parser.add_argument('--timeout', default=1800, type=int)
 
     args = parser.parse_args()
     setLogLevel('debug')
     global network
-    global NUM_BYTES_PER_FLOW, BITRATE
+    global NUM_BYTES_PER_FLOW, BITRATE, exit_timeout
     NUM_BYTES_PER_FLOW = args.num_bytes_sent
     BITRATE = args.bitrate
+    exit_timeout = args.timeout
     network = IPNet(
         topo=SimulatedNetworkTopology(
             n=args.num_switches,
