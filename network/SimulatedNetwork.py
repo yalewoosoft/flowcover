@@ -207,7 +207,7 @@ def handle_signal_emulate_traffic(sig, frame):
                 ipv6_dst=dst_ip,
                 port=flow_port[flow_id],
             )
-            print(trafgen_conf)
+            #print(trafgen_conf)
             if NUM_BYTES_PER_FLOW > 0:
                 src_popen = src_host.popen(['trafgen',
                                             '--dev',f'h{src}-eth0',
