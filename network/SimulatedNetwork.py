@@ -274,13 +274,11 @@ def parse_flow_trafgen(flow_ids: [int]) -> dict[int, int]:
     flow_bytes: dict[int, int] = {}
     for flow_id in flow_ids:
         log_filename = f"/tmp/trafgen_{flow_id}.log"
-        done = False
-        while not done:
-            if os.path.exists(log_filename):
-                with open(log_filename, 'r') as f:
-                    flow_bytes[flow_id] = int(f.read())
-                done = True
-            time.sleep(0.2)
+        if os.path.exists(log_filename):
+            with open(log_filename, 'r') as f:
+                flow_bytes[flow_id] = int(f.read())
+        else:
+            flow_bytes[flow_id] = 0
 
     return flow_bytes
 
