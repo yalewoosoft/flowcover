@@ -221,7 +221,8 @@ class Controller(ControllerTemplate):
                 while not all(server_quited.values()):
                     time.sleep(1)
                     time_now = timer()
-                    wait_time = wait_time_start - time_now
+                    wait_time = time_now - wait_time_start
+                    print('Current waiting time: ', wait_time)
                     if wait_time >= self.timeout:
                         print(f'Server exit timed out. Force exiting. All remaining flows will be set to zero.')
                         break
