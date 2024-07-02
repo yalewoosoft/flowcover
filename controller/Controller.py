@@ -196,46 +196,47 @@ class Controller(ControllerTemplate):
 
     def _monitor(self):
         while True:
-            for dp in self.online_switches.values():
-                self.request_stats(dp)
-            # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
-            # Save flow_stats to a JSON file with a timestamped filename
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-            filename = f"stats/flow_stats.json"
+            if all(self.switch_configured.values()):
+                for dp in self.online_switches.values():
+                    self.request_stats(dp)
+                # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
+                # Save flow_stats to a JSON file with a timestamped filename
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                filename = f"stats/flow_stats.json"
 
-            # Ensure the stats directory exists
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
+                # Ensure the stats directory exists
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-            with open(filename, 'w') as f:
-                json.dump(self.flow_stats, f, indent=4)
-            pprint(self.flow_stats)
-            if any(v > 0 for v in self.flow_stats.values()) and self.prev_flow_stats == self.flow_stats:
-                self.unchanged_count += 1
-            else:
-                self.unchanged_count = 0
-            print(f'Flows stats unchanged for {self.unchanged_count} times.')
-            if self.unchanged_count >= 10:
-                print("Flow stats stable (10 count). Waiting for server to quit.")
-                wait_time_start = timer()
-                server_quited: dict[int, bool] = {}
-                for flow_id in self.flows.keys():
-                    server_quited[flow_id] = False
-                while not all(server_quited.values()):
-                    time.sleep(1)
-                    time_now = timer()
-                    wait_time = time_now - wait_time_start
-                    print('Current waiting time: ', wait_time)
-                    if wait_time >= self.timeout:
-                        print(f'Server exit timed out. Force exiting. All remaining flows will be set to zero.')
-                        break
+                with open(filename, 'w') as f:
+                    json.dump(self.flow_stats, f, indent=4)
+                pprint(self.flow_stats)
+                if any(v > 0 for v in self.flow_stats.values()) and self.prev_flow_stats == self.flow_stats:
+                    self.unchanged_count += 1
+                else:
+                    self.unchanged_count = 0
+                print(f'Flows stats unchanged for {self.unchanged_count} times.')
+                if self.unchanged_count >= 10:
+                    print("Flow stats stable (10 count). Waiting for server to quit.")
+                    wait_time_start = timer()
+                    server_quited: dict[int, bool] = {}
                     for flow_id in self.flows.keys():
-                        filename = f'/tmp/trafgen_{flow_id}.log'
-                        if os.path.exists(filename):
-                            server_quited[flow_id] = True
-                print("All server exited. Exiting controller and mininet.")
-                os.kill(self.pid_of_mininet, signal.SIGUSR2)
-                os._exit(0)
-            self.prev_flow_stats = deepcopy(self.flow_stats)
+                        server_quited[flow_id] = False
+                    while not all(server_quited.values()):
+                        time.sleep(1)
+                        time_now = timer()
+                        wait_time = time_now - wait_time_start
+                        print('Current waiting time: ', wait_time)
+                        if wait_time >= self.timeout:
+                            print(f'Server exit timed out. Force exiting. All remaining flows will be set to zero.')
+                            break
+                        for flow_id in self.flows.keys():
+                            filename = f'/tmp/trafgen_{flow_id}.log'
+                            if os.path.exists(filename):
+                                server_quited[flow_id] = True
+                    print("All server exited. Exiting controller and mininet.")
+                    os.kill(self.pid_of_mininet, signal.SIGUSR2)
+                    os._exit(0)
+                self.prev_flow_stats = deepcopy(self.flow_stats)
             hub.sleep(3)
 
 
