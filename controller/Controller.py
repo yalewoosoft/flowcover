@@ -195,7 +195,7 @@ class Controller(ControllerTemplate):
                 self.switch_configured[datapath.id] = False
 
     def _monitor(self):
-        while True:
+        while all(self.switch_configured.values()):
             for dp in self.online_switches.values():
                 self.request_stats(dp)
             # TODO: write self.flow_stats to a json under the stats/ directory, filename should include the current timestamp!
