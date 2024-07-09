@@ -23,8 +23,8 @@ graphs = {
 }
 
 
-def save_timing_results(graph_type,num_switchs, calc_time):
-    filename = 'data/timing_results.csv'
+def save_timing_results(graph_type,num_switchs, calc_time,times):
+    filename = 'data/timing_results_average.csv'
 
     # Ensure the data directory exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -33,19 +33,20 @@ def save_timing_results(graph_type,num_switchs, calc_time):
     with open(filename, 'a', newline='') as csvfile:
         csvwriter = csv.writer(csvfile)
         if csvfile.tell() == 0:  # Check if file is empty to write header
-            csvwriter.writerow(['Type of graph', 'Number of switches', 'Calculation Time (ms)'])
-        csvwriter.writerow([type,num_switchs,calc_time * 1000])
+            csvwriter.writerow(['Type of graph', 'Number of switches', 'Calculation Time (ms)', 'Times'])
+        csvwriter.writerow([type,num_switchs,calc_time * 1000,times])
 
 
 for type,graph in graphs.items():
-    flows = FlowGenerator.generate_random_flows(20000, graph)
-    # Construction Timer
-    switch_flows = FlowGenerator.generate_switch_flow_list(flows)
-    # Calculate Timer
-    calc_time_start = timer()
-    flows_list = list(flows.keys())
-    SetCover.set_cover_solve(flows_list, switch_flows)
-    calc_time_end = timer()
-    calc_time_elapsed = calc_time_end - calc_time_start
-    # Save Result
-    save_timing_results(type, num_switchs, calc_time_elapsed)
+    for times in range(3):
+        flows = FlowGenerator.generate_random_flows(20000, graph)
+        # Construction Timer
+        switch_flows = FlowGenerator.generate_switch_flow_list(flows)
+        # Calculate Timer
+        calc_time_start = timer()
+        flows_list = list(flows.keys())
+        SetCover.set_cover_solve(flows_list, switch_flows)
+        calc_time_end = timer()
+        calc_time_elapsed = calc_time_end - calc_time_start
+        # Save Result
+        save_timing_results(type, num_switchs, calc_time_elapsed,times)
